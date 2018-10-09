@@ -118,7 +118,6 @@ class DBTools:
         return(user_list)
 
 
-
     def getUserStartEndDates(self,user):
         if(self.verbose): print('Collecting start end dates for user',user)
 
@@ -134,11 +133,26 @@ class DBTools:
         return((oldest_post,newest_post))
 
 
+    def getUserStartEndDatesForSub(self,user,subreddit):
+        if(self.verbose): print('Collecting start end dates for user {} in subreddit {}'.format(user,subreddit))
 
-    def getUserPostTimes(self,user):
+        #For a user, get their beginning and ending dates of posting, in a particular subreddit.
+        oldest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&subreddit={}&fields=created_utc&size=5&sort=asc'.format(user,subreddit)
+        oldest_df = self.normalizeJson(self.requestToJson(oldest_req))
+        oldest_post = oldest_df['created_utc'].values.tolist()[0]
+
+        newest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&subreddit={}&fields=created_utc&size=5&sort=desc'.format(user,subreddit)
+        newest_df = self.normalizeJson(self.requestToJson(newest_req))
+        newest_post = newest_df['created_utc'].values.tolist()[0]
+
+        return((oldest_post,newest_post))
+
+
+    def getUserPostTimes(self,user,subreddit):
 
         #All times at this point are in units of epoch, i.e., a long integer string.
-        start_time, end_time = self.getUserStartEndDates(user)
+        #start_time, end_time = self.getUserStartEndDates(user) #maybe depracated.
+        start_time, end_time = self.getUserStartEndDatesForSub(user,subreddit)
 
         #You can only request up to 500 items at once, so we have to loop through until there's nothing left.
         after_time = start_time
@@ -160,7 +174,6 @@ class DBTools:
         return(post_times)
 
 
-
     def getUserPostTimesForSub(self,subreddit):
 
         users = self.getUsersInSub(subreddit)[:self.N_users]
@@ -173,7 +186,7 @@ class DBTools:
         for i,user in enumerate(users):
             try:
                 if(self.verbose):print('\nGetting info for user: {} ({} out of {})'.format(user,i+1,len(users)))            
-                post_times = self.getUserPostTimes(user)
+                post_times = self.getUserPostTimes(user,subreddit)
                 pt_binned = self.binPostTimes(post_times)
                 #most_common_bin, _ = Counter(pt_binned).most_common(1)[0]
                 max_bin = np.argmax(pt_binned)
