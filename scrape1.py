@@ -20,7 +20,8 @@ took 48 minutes, so ~4s/request. Hmmm.
 dbt = DBTools()
 
 #dbt.meanPostTimesRegions(['nyc','losangeles'])
-dbt.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
+#dbt.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
+dbt.postTimesRegions(['losangeles','boston','unitedkingdom','india','japan','newzealand'])
 #dbt.getUserPostTimesForSub('providence')
 #dbt.plotUserPostTimes('m1327')
 
