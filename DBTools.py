@@ -13,53 +13,55 @@ from collections import Counter
 class DBTools:
 
 
-    def __init__(self):
+    def __init__(self,**kwargs):
 
         #The guy requests that people don't poll more than once a second, so we'll limit it like this.
         self.api_request_limit = 1.0
         self.last_request_time = time()
         self.N_bins = 24
-        self.max_N_users = -1 # set to -1 to revert to default (in getUserPostTimesForSub).
-        self.N_post_limit = -1 # set to -1 to revert to default (in getUserPostTimes).
-        self.verbose = 0 
-        self.max_req_size = 500
+        self.N_users = kwargs.get('N_users',300)
+        self.N_post_limit = kwargs.get('N_post_limit',500)
+        self.verbose = kwargs.get('verbose',0) 
+        self.max_req_size = kwargs.get('max_req_size',500)
 
-
+        #number of users in comment following time zone
         city_tz_dict = {
         'anchorange' : -9,
-        'losangeles' : -8,
+        'losangeles' : -8, #124k
         'vancouver' : -8,
-        'denver' : -7,
+        'denver' : -7, #77k
         'dallas' : -6,
-        'chicago' : -6,
+        'chicago' : -6, #124k
         'mexicocity' : -6,
-        'nyc' : -5,
-        'boston' : -5,
-        'washingtondc' : -5,
+        'nyc' : -5, #154k
+        'boston' : -5, #100k
+        'washingtondc' : -5, #63k
         'puertorico' : -4,
-        'buenosaires' : -3,
+        'buenosaires' : -3, #2k
         'london' : 0,
+        'unitedkingdom' : 0, #210k
         'ireland' : 0,
-        'paris' : 1,
-        'madrid' : 1,
-        'rome' : 1,
-        'greece' : 2,
+        'paris' : 1, #19k
+        'france' : 1, #220k
+        'spain' : 1, #19k
+        'italy' : 1, #122k
+        'greece' : 2, #43k
         'romania' : 2,
-        'saudiarabia' : 3,
-        'pakistan' : 5,
-        'india' : 5.5,
+        'saudiarabia' : 3, #7k
+        'pakistan' : 5, #19k
+        'india' : 5.5, #153k
         'thailand' : 7,
-        'vietnam' : 7,
-        'indonesia' : 7,
+        'vietnam' : 7, #18k
+        'indonesia' : 7, #31k
         'beijing' : 8,
-        'shanghai' : 8,
+        'shanghai' : 8, #10k
         'perth' : 8.75,
-        'taiwan' : 8,
-        'japan' : 9,
-        'korea' : 9,
+        'taiwan' : 8, #20k
+        'japan' : 9, #138k
+        'korea' : 9, #60k
         'sydney' : 10,
         'melbourne' : 10,
-        'newzealand' : 12
+        'newzealand' : 12 #92k
         }
 
 
@@ -142,12 +144,11 @@ class DBTools:
         after_time = start_time
         post_times = []
         i = 0
-        N_post_limit = 1000 
-        if(self.N_post_limit != -1): N_post_limit = self.N_post_limit
+
         while True:
             range_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&after={}&fields=created_utc&size={}&sort=asc'.format(user,after_time,self.max_req_size)
             range_df = self.normalizeJson(self.requestToJson(range_req))
-            if len(range_df) == 0 or len(post_times)>=N_post_limit:
+            if len(range_df) == 0 or len(post_times)>=self.N_post_limit:
                 break
             else:
                 range_list = range_df['created_utc'].values.tolist()
@@ -162,10 +163,7 @@ class DBTools:
 
     def getUserPostTimesForSub(self,subreddit):
 
-        N_users = 300 #default
-        if(self.max_N_users != -1 ): N_users = self.max_N_users 
-
-        users = self.getUsersInSub(subreddit)[:N_users]
+        users = self.getUsersInSub(subreddit)[:self.N_users]
         if(self.verbose):print('\ngetUserPostTimesForSub : limiting to',len(users),'users:',users,'\n')
 
         user_post_times_condensed = []
@@ -173,16 +171,21 @@ class DBTools:
         fig, ax = plt.subplots(1,1,figsize=(8,8))
 
         for i,user in enumerate(users):
-            if(self.verbose):print('\nGetting info for user: {} ({} out of {})'.format(user,i+1,len(users)))            
-            post_times = self.getUserPostTimes(user)
-            pt_binned = self.binPostTimes(post_times)
-            #most_common_bin, _ = Counter(pt_binned).most_common(1)[0]
-            max_bin = np.argmax(pt_binned)
-            user_post_times_all.append(pt_binned)
-            user_post_times_condensed.append(max_bin)
+            try:
+                if(self.verbose):print('\nGetting info for user: {} ({} out of {})'.format(user,i+1,len(users)))            
+                post_times = self.getUserPostTimes(user)
+                pt_binned = self.binPostTimes(post_times)
+                #most_common_bin, _ = Counter(pt_binned).most_common(1)[0]
+                max_bin = np.argmax(pt_binned)
+                user_post_times_all.append(pt_binned)
+                user_post_times_condensed.append(max_bin)
 
-            sns.distplot(pt_binned, bins=self.N_bins, kde=True, rug=False, hist=False)
-            ax.vlines(max_bin,0,.05,linestyles='dashed')
+                sns.distplot(self.postTimesToHours(post_times), bins=self.N_bins, kde=True, rug=False, hist=False)
+                #Should make these lines taller, but the math is annoying...
+                ax.vlines(max_bin,0,.1,linestyles='dashed')
+
+            except Exception as e:
+                print('problem at iteration {}: getting info for user: {}'.format(i, user))
 
 
 
@@ -193,7 +196,7 @@ class DBTools:
         plt.savefig('savefigs/{}_posttimes_{}.png'.format(subreddit,fst.getDateString()))
 
 
-        fname = 'savedat/{}users_{}_subreddit_{}bins_{}.txt'.format(N_users, subreddit, self.N_bins, fst.getDateString())
+        fname = 'savedat/{}users_{}_subreddit_{}bins_{}.txt'.format(self.N_users, subreddit, self.N_bins, fst.getDateString())
         np.savetxt(fname, np.array(user_post_times_all), fmt='%d')
 
         #plt.show()
@@ -207,6 +210,12 @@ class DBTools:
 
         start_time = fst.getCurTimeObj()
         region_stats = pd.DataFrame({'region':[],'post_time':[]})
+
+
+        print('\n\nEstimated runtime for {} cities, {} users each, \
+        {} posts each: {} seconds'.format(len(region_list), self.N_users, self.N_post_limit,
+        len(region_list)*self.N_users*int(self.N_post_limit/500)))
+
 
         for subreddit in region_list:
             print('\n\nGetting stats for city {} ({} out of {})\n'.format(subreddit,region_list.index(subreddit)+1,len(region_list)))
@@ -234,10 +243,13 @@ class DBTools:
         plt.savefig('savefigs/{}_posttimes_{}.png'.format('_'.join(region_list),fst.getDateString()))
 
 
+    def postTimesToHours(self,pt):
+        pt_hours = np.array([datetime.strftime(datetime.utcfromtimestamp(ts),'%H') for ts in pt]).astype('int')
+        return(pt_hours)
+
     def binPostTimes(self,pt):
         #This bins times in the epoch format to a list of times of whatever bin you choose. Right now it's by hour.
-        pt_hours = np.array([datetime.strftime(datetime.utcfromtimestamp(ts),'%H') for ts in pt]).astype('int')
-        bins = np.histogram(pt_hours, bins=list(range(self.N_bins+1)))[0]
+        bins = np.histogram(self.postTimesToHours(pt), bins=list(range(self.N_bins+1)))[0]
         return(bins)
 
 
