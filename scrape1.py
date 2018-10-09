@@ -4,41 +4,25 @@ from DBTools import DBTools
 
 '''
 
-other ideas:
+data found here: http://files.pushshift.io/reddit/
 
--look at S.A./etc for massively upvoted/downvoted comments
+API docs here: https://github.com/pushshift/api
 
--data found here: http://files.pushshift.io/reddit/
+don't request more than ~1/sec. Each request can return <500 terms.
 
-example API request here:
-
-url = 'https://api.pushshift.io/reddit/search/comment/?subreddit=dallas&size=500'
-
-r = requests.get(url)
-df = pd.io.json.json_normalize(r.json()['data'])
-
-
-uhhhhh yeah so this one month json file (the 2010 one) is 2.5GB, and trying to
-load it makes it shit the bed...how can you read it in chunks?
+getting 1000 posts each for 100 users each from 4 subreddits (i.e., 800 requests)
+took 48 minutes, so ~4s/request. Hmmm.
 
 '''
 
 
 
-dbt = DBTools('RC_2008-04')
+dbt = DBTools()
 
-
-dbt.dropUnimportant()
-
-dbt.getDBInfo()
-
-dbt.getUserPostTimesForSub('science')
-
-exit(0)
-
-test_user = 'cartooncorpse'
-dbt.getUserPostTimes(test_user)
-
+#dbt.meanPostTimesRegions(['nyc','losangeles'])
+dbt.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
+#dbt.getUserPostTimesForSub('providence')
+#dbt.plotUserPostTimes('m1327')
 
 
 #

@@ -5,155 +5,243 @@ import seaborn as sns
 from tabulate import tabulate
 from datetime import datetime
 from statistics import mean
+import requests
+from time import time, sleep
+import FileSystemTools as fst
+from collections import Counter
 
 class DBTools:
 
 
-    def __init__(self,fname):
+    def __init__(self):
 
-        self.fname = fname
-        self.df = pd.read_json(self.fname,lines=True)
+        #The guy requests that people don't poll more than once a second, so we'll limit it like this.
+        self.api_request_limit = 1.0
+        self.last_request_time = time()
+        self.N_bins = 24
+
+
+        city_tz_dict = {
+        'anchorange' : -9,
+        'losangeles' : -8,
+        'vancouver' : -8,
+        'denver' : -7,
+        'dallas' : -6,
+        'chicago' : -6,
+        'mexicocity' : -6,
+        'nyc' : -5,
+        'boston' : -5,
+        'washingtondc' : -5,
+        'puertorico' : -4,
+        'buenosaires' : -3,
+        'london' : 0,
+        'ireland' : 0,
+        'paris' : 1,
+        'madrid' : 1,
+        'rome' : 1,
+        'greece' : 2,
+        'romania' : 2,
+        'saudiarabia' : 3,
+        'pakistan' : 5,
+        'india' : 5.5,
+        'thailand' : 7,
+        'vietnam' : 7,
+        'indonesia' : 7,
+        'beijing' : 8,
+        'shanghai' : 8,
+        'perth' : 8.75,
+        'taiwan' : 8,
+        'japan' : 9,
+        'korea' : 9,
+        'sydney' : 10,
+        'melbourne' : 10,
+        'newzealand' : 12
+        }
 
 
 
-    def getDBInfo(self):
+    def requestToJson(self,request_str):
 
-        print('\n\n\n')
-        self.prettyPrintDB(self.df)
+        #This will make it not poll too often. It will always go through, but
+        #will wait a second if it has been too soon.
+        while True:
+            if time() - self.last_request_time >= self.api_request_limit:
+                r = requests.get(request_str)
+                self.last_request_time = time()
+                break
+            else:
+                sleep(self.api_request_limit/5)
 
-        print('\n')
-        print('columns: ', self.df.columns)
-        print('# posts: ', self.df.size)
+        return(r)
 
-        print('# unique subreddits: ',self.df['subreddit'].unique().size)
-        print('# unique authors: ',self.df['author'].unique().size)
 
-        print('\n\n\n')
+    def normalizeJson(self,json_obj,field='data',aggs=False):
+
+        if aggs:
+            df = pd.io.json.json_normalize(json_obj.json()['aggs'],[field])
+        else:
+            df = pd.io.json.json_normalize(json_obj.json()[field])
+        return(df)
+
 
 
     def prettyPrintDB(self,df):
 
         print(tabulate(df.head(), headers=df.columns.values, tablefmt='psql'))
-
-
-
-    def dropUnimportant(self):
-
-        '''
-        Default columns:
-            ['author', 'author_flair_css_class', 'author_flair_text', 'body',
-           'controversiality', 'created_utc', 'distinguished', 'edited', 'gilded',
-           'id', 'link_id', 'parent_id', 'retrieved_on', 'score', 'stickied',
-           'subreddit', 'subreddit_id', 'ups']
-        '''
-
-        drop_labels = ['author_flair_css_class', 'author_flair_text', 'body',
-       'controversiality', 'distinguished', 'edited', 'gilded',
-        'parent_id', 'retrieved_on', 'score', 'stickied',
-       'ups']
-
-       #Probably actually should just keep certain ones... not choose which to drop
-
-        for label in drop_labels:
-            if label in self.df.columns:
-                self.df.drop(labels=label, inplace=True, axis='columns')
-
-
-
-    def getPostsFromSub(self,subreddit):
-        return(self.df[self.df['subreddit'] == subreddit])
+        print('\n')
+        print('columns: ', df.columns)
 
 
     def getUsersInSub(self,subreddit):
 
-        sub_df = self.getPostsFromSub(subreddit)
+        request = 'https://api.pushshift.io/reddit/search/comment/?subreddit={}&aggs=author&size=500'.format(subreddit)
+        J = self.requestToJson(request)
+        df = self.normalizeJson(J,field='author',aggs=True)
 
-        user_list = sub_df['author'].unique()
+        user_list = df['key'].values.tolist()
+
+
+        if '[deleted]' in user_list:
+            user_list.remove('[deleted]')
+        if 'AutoModerator' in user_list:
+            user_list.remove('AutoModerator')
+
+        #print(user_list)
 
         return(user_list)
 
 
 
+    def getUserStartEndDates(self,user):
+        #For a user, get their beginning and ending dates of posting.
+        oldest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&fields=created_utc&size=5&sort=asc'.format(user)
+        oldest_df = self.normalizeJson(self.requestToJson(oldest_req))
+        oldest_post = oldest_df['created_utc'].values.tolist()[0]
 
-    def getUserInfo(self,user):
+        newest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&fields=created_utc&size=5&sort=desc'.format(user)
+        newest_df = self.normalizeJson(self.requestToJson(newest_req))
+        newest_post = newest_df['created_utc'].values.tolist()[0]
 
-        user_df = self.df[self.df['author'] == user]
-
-        print('\n\n')
-        print('user:', user)
-        print('# posts:',user_df.size)
-
-        return(user_df)
-
+        return((oldest_post,newest_post))
 
 
 
     def getUserPostTimes(self,user):
 
-        user_df = self.getUserInfo(user)
+        #All times at this point are in units of epoch, i.e., a long integer string.
+        start_time, end_time = self.getUserStartEndDates(user)
 
-        timestamps = user_df['created_utc'].values
+        #You can only request up to 500 items at once, so we have to loop through until there's nothing left.
+        after_time = start_time
+        post_times = []
+        i = 0
+        N_post_limit = 1000
+        while True:
+            range_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&after={}&fields=created_utc&size=500&sort=asc'.format(user,after_time)
+            range_df = self.normalizeJson(self.requestToJson(range_req))
+            if len(range_df) == 0 or len(post_times)>=N_post_limit:
+                break
+            else:
+                range_list = range_df['created_utc'].values.tolist()
+                post_times += range_list
+                after_time = range_list[-1]
+                i += 1
 
-        timestamps = np.array([datetime.strftime(datetime.utcfromtimestamp(ts),'%H') for ts in timestamps]).astype('int')
-
-        return(timestamps)
-        '''dp = sns.distplot(timestamps, bins=24, kde=True, rug=True);
-        dp.axes.set_xlim(0,24)
-        dp.axes.set_title('Post-time dist. for user ' + user)
-        dp.axes.set_xlabel('Hour (24H)')
-        dp.axes.set_ylabel('Post frequency')
-        plt.show()'''
-
-
+        #print('took {} iterations, {} total posts'.format(i,len(post_times)))
+        return(post_times)
 
 
 
     def getUserPostTimesForSub(self,subreddit):
 
-        N_users = 20
+        N_users = 300
 
-        sub_df = self.getPostsFromSub(subreddit)
-        print('size of sub:',len(sub_df))
-        #Get rid of deleted accounts
-        sub_df = sub_df[sub_df['author'] != '[deleted]']
+        users = self.getUsersInSub(subreddit)[:N_users]
 
-        #Rank users of the sub by # posts, take top N
-        freq_ranked_users = sub_df.groupby(by='author')[['author']].count().sort_values(by='author',ascending=False)[:N_users]
+        user_post_times_condensed = []
+        user_post_times_all = []
+        fig, ax = plt.subplots(1,1,figsize=(8,8))
 
-        freq_ranked_users = freq_ranked_users.index.values
-        print(freq_ranked_users)
-        fig,ax = plt.subplots(1,1,figsize=(6,6))
-
-        all_post_time_means = []
-
-        for user in freq_ranked_users:
-
+        for i,user in enumerate(users):
+            #print('{}: getting info for user: {}'.format(i, user))
             post_times = self.getUserPostTimes(user)
+            pt_binned = self.binPostTimes(post_times)
+            #most_common_bin, _ = Counter(pt_binned).most_common(1)[0]
+            max_bin = np.argmax(pt_binned)
+            user_post_times_all.append(pt_binned)
+            user_post_times_condensed.append(max_bin)
 
-            all_post_time_means.append(post_times.mean())
-
-            '''ax.clear()
-            dp = sns.distplot(post_times, bins=24, kde=True, rug=True);
-            dp.axes.set_xlim(0,24)
-            dp.axes.set_title('Post-time dist. for user ' + user)
-            dp.axes.set_xlabel('Hour (24H)')
-            dp.axes.set_ylabel('Post frequency')
-            dp.axes.vlines(post_times.mean(),0,1,linestyles='dashed')
-            plt.savefig('savefigs/' + user + '.png')'''
+            sns.distplot(pt_binned, bins=self.N_bins, kde=True, rug=False, hist=False)
+            ax.vlines(max_bin,0,.05,linestyles='dashed')
 
 
-        ax.clear()
-        dp = sns.distplot(all_post_time_means, bins=24, kde=True, rug=True);
+
+        ax.set_xlim(0,24)
+        ax.set_title('Post-time maxs dist. for subreddit: ' + subreddit)
+        ax.set_xlabel('Hour (24H)')
+        ax.set_ylabel('Post frequency')
+        plt.savefig('savefigs/{}_posttimes_{}.png'.format(subreddit,fst.getDateString()))
+
+
+        fname = 'savedat/{}users_{}_subreddit_{}bins_{}.txt'.format(N_users, subreddit, self.N_bins, fst.getDateString())
+        np.savetxt(fname, np.array(user_post_times_all), fmt='%d')
+
+        #plt.show()
+        return(user_post_times_condensed)
+
+
+
+    def postTimesRegions(self,region_list):
+
+        start_time = fst.getCurTimeObj()
+        region_stats = pd.DataFrame({'region':[],'post_time':[]})
+
+        for subreddit in region_list:
+            print('\n\ngetting stats for city', subreddit)
+            '''stats = self.getUserPostTimesForSub(subreddit)
+            sub_stats = pd.DataFrame({'region':[subreddit]*len(stats),'post_time':stats})
+            region_stats = region_stats.append(sub_stats, ignore_index=True)'''
+            try:
+                stats = self.getUserPostTimesForSub(subreddit)
+                sub_stats = pd.DataFrame({'region':[subreddit]*len(stats),'post_time':stats})
+                region_stats = region_stats.append(sub_stats, ignore_index=True)
+            except Exception as e:
+                print('problem getting stats for city', subreddit)
+                print('exception:',e)
+
+            print('\n\ntook this long for {}: {}'.format(subreddit,fst.getTimeDiffStr(start_time)))
+
+        #self.prettyPrintDB(region_stats)
+        print('\n\ntook this long to run: ' + fst.getTimeDiffStr(start_time))
+
+        fig, ax = plt.subplots(1,1,figsize=(16,12))
+        sns.violinplot(x='region', y='post_time', data=region_stats)
+        ax.set_title('Post-time maxs dist. for subreddits: ' + ', '.join(region_list))
+        ax.set_xlabel('city')
+        ax.set_ylabel('post_time (24H)')
+        plt.savefig('savefigs/{}_posttimes_{}.png'.format('_'.join(region_list),fst.getDateString()))
+
+
+    def binPostTimes(self,pt):
+        #This bins times in the epoch format to a list of times of whatever bin you choose. Right now it's by hour.
+        pt_hours = np.array([datetime.strftime(datetime.utcfromtimestamp(ts),'%H') for ts in pt]).astype('int')
+        bins = np.histogram(pt_hours, bins=list(range(self.N_bins+1)))[0]
+        return(bins)
+
+
+    def plotUserPostTimes(self,user):
+
+        pt = self.getUserPostTimes(user)
+
+
+        pt_hours = self.binPostTimes(pt)
+
+        dp = sns.distplot(pt_hours, bins=24, kde=True, rug=False, hist=False);
         dp.axes.set_xlim(0,24)
-        dp.axes.set_title('Post-time means dist. for subreddit ' + subreddit)
+        dp.axes.set_title('Post-time dist. for user ' + user)
         dp.axes.set_xlabel('Hour (24H)')
-        dp.axes.set_ylabel('number of users')
-        dp.axes.vlines(mean(all_post_time_means),0,1,linestyles='dashed')
-        plt.savefig('savefigs/' + subreddit + '.png')
-
-
-
-
-
-
+        dp.axes.set_ylabel('Post frequency')
+        dp.axes.vlines(max(pt_hours),0,1,linestyles='dashed')
+        plt.savefig('savefigs/{}_posttimes.png'.format(user))
+        plt.show()
 #
