@@ -19,6 +19,10 @@ class DBTools:
         self.api_request_limit = 1.0
         self.last_request_time = time()
         self.N_bins = 24
+        self.max_N_users = -1 # set to -1 to revert to default (in getUserPostTimesForSub).
+        self.N_post_limit = -1 # set to -1 to revert to default (in getUserPostTimes).
+        self.verbose = 0 
+        self.max_req_size = 500
 
 
         city_tz_dict = {
@@ -64,6 +68,7 @@ class DBTools:
 
         #This will make it not poll too often. It will always go through, but
         #will wait a second if it has been too soon.
+        if(self.verbose):print('requesting',request_str)
         while True:
             if time() - self.last_request_time >= self.api_request_limit:
                 r = requests.get(request_str)
@@ -94,7 +99,7 @@ class DBTools:
 
     def getUsersInSub(self,subreddit):
 
-        request = 'https://api.pushshift.io/reddit/search/comment/?subreddit={}&aggs=author&size=500'.format(subreddit)
+        request = 'https://api.pushshift.io/reddit/search/comment/?subreddit={}&aggs=author&size={}'.format(subreddit,self.max_req_size)
         J = self.requestToJson(request)
         df = self.normalizeJson(J,field='author',aggs=True)
 
@@ -106,13 +111,15 @@ class DBTools:
         if 'AutoModerator' in user_list:
             user_list.remove('AutoModerator')
 
-        #print(user_list)
+        if(self.verbose):print('\nFound',len(user_list),'users in subreddit [',subreddit,']:',user_list,'\n')
 
         return(user_list)
 
 
 
     def getUserStartEndDates(self,user):
+        if(self.verbose): print('Collecting start end dates for user',user)
+
         #For a user, get their beginning and ending dates of posting.
         oldest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&fields=created_utc&size=5&sort=asc'.format(user)
         oldest_df = self.normalizeJson(self.requestToJson(oldest_req))
@@ -135,9 +142,10 @@ class DBTools:
         after_time = start_time
         post_times = []
         i = 0
-        N_post_limit = 1000
+        N_post_limit = 1000 
+        if(self.N_post_limit != -1): N_post_limit = self.N_post_limit
         while True:
-            range_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&after={}&fields=created_utc&size=500&sort=asc'.format(user,after_time)
+            range_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&after={}&fields=created_utc&size={}&sort=asc'.format(user,after_time,self.max_req_size)
             range_df = self.normalizeJson(self.requestToJson(range_req))
             if len(range_df) == 0 or len(post_times)>=N_post_limit:
                 break
@@ -154,16 +162,18 @@ class DBTools:
 
     def getUserPostTimesForSub(self,subreddit):
 
-        N_users = 300
+        N_users = 300 #default
+        if(self.max_N_users != -1 ): N_users = self.max_N_users 
 
         users = self.getUsersInSub(subreddit)[:N_users]
+        if(self.verbose):print('\ngetUserPostTimesForSub : limiting to',len(users),'users:',users,'\n')
 
         user_post_times_condensed = []
         user_post_times_all = []
         fig, ax = plt.subplots(1,1,figsize=(8,8))
 
         for i,user in enumerate(users):
-            #print('{}: getting info for user: {}'.format(i, user))
+            if(self.verbose):print('\nGetting info for user: {} ({} out of {})'.format(user,i+1,len(users)))            
             post_times = self.getUserPostTimes(user)
             pt_binned = self.binPostTimes(post_times)
             #most_common_bin, _ = Counter(pt_binned).most_common(1)[0]
@@ -193,11 +203,13 @@ class DBTools:
 
     def postTimesRegions(self,region_list):
 
+        if(self.verbose):print('\nBegin processing postTimesRegion for:',region_list,'\n')
+
         start_time = fst.getCurTimeObj()
         region_stats = pd.DataFrame({'region':[],'post_time':[]})
 
         for subreddit in region_list:
-            print('\n\ngetting stats for city', subreddit)
+            print('\n\nGetting stats for city {} ({} out of {})\n'.format(subreddit,region_list.index(subreddit)+1,len(region_list)))
             '''stats = self.getUserPostTimesForSub(subreddit)
             sub_stats = pd.DataFrame({'region':[subreddit]*len(stats),'post_time':stats})
             region_stats = region_stats.append(sub_stats, ignore_index=True)'''
