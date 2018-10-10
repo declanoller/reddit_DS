@@ -160,7 +160,7 @@ class DBTools:
         i = 0
 
         while True:
-            range_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&after={}&fields=created_utc&size={}&sort=asc'.format(user,after_time,self.max_req_size)
+            range_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&after={}&before={}&fields=created_utc&size={}&sort=asc'.format(user,after_time,end_time,self.max_req_size)
             range_df = self.normalizeJson(self.requestToJson(range_req))
             if len(range_df) == 0 or len(post_times)>=self.N_post_limit:
                 break
