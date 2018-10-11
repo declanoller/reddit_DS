@@ -17,12 +17,11 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 
 
-dbt = DBTools()
+dbt = DBTools(N_users=10,
+			  N_post_limit=50,
+			  verbose=1,
+			  max_req_size=500)
 
-dbt.max_N_users = 10
-dbt.N_post_limit = 50
-dbt.verbose = 1
-dbt.max_req_size = 500
 #note the following method requires the existence of the following folders: "savedat","savefig". Need to configure this. 
 dbt.postTimesRegions(['losangeles','london','bali'])
 
