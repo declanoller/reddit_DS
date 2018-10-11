@@ -1,6 +1,6 @@
 import pandas as pd
 
-from DBTools import DBTools
+from DataCollection import DataCollection
 
 '''
 
@@ -17,11 +17,12 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 
 
-dbt = DBTools()
+dbt = DataCollection(verbose=1,N_users=5,N_post_limit=500)
 
 #dbt.meanPostTimesRegions(['nyc','losangeles'])
 #dbt.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
-dbt.postTimesRegions(['losangeles','boston','unitedkingdom','india','japan','newzealand'])
+#dbt.postTimesRegions(['losangeles','boston','unitedkingdom','india','japan','newzealand'])
+dbt.postTimesRegions(['losangeles'])
 #dbt.getUserPostTimesForSub('providence')
 #dbt.plotUserPostTimes('m1327')
 
