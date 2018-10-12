@@ -29,6 +29,15 @@ class DataCollection:
         self.base_fname = '{}users_{}bins_{}'.format(self.N_users, self.N_bins, fst.getDateString())
         self.ext = '.csv'
 
+        '''
+        -should definitely add a log/parameter file, that can have more detail than the filenames do
+        -need to change the binning functions slightly to make it able to bin with different resolution (i.e., half hours)
+        -
+
+
+        '''
+
+
         #number of users in comment following time zone
         city_tz_dict = {
         'anchorange' : -9,
@@ -256,7 +265,7 @@ class DataCollection:
         print('\n\ntook this long to run: ' + fst.getTimeDiffStr(start_time))
         self.prettyPrintDB(region_stats)
 
-        self.saveDataFrame(region_stats, label='all')
+        self.saveDataFrame(region_stats, label='aggregate')
 
 
 

@@ -1,6 +1,7 @@
 import pandas as pd
 
 from DataCollection import DataCollection
+from ML import ML
 
 '''
 
@@ -17,12 +18,17 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 
 
+
+ml = ML('/home/declan/Documents/code/reddit_DS/savedat/losangeles_boston_5users_24bins_18-46-47')
+
+
+exit(0)
 dc = DataCollection(verbose=1, N_users=5, N_post_limit=500)
+dc.postTimesRegions(['losangeles', 'boston'])
 
 #dc.meanPostTimesRegions(['nyc','losangeles'])
 #dc.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
 #dc.postTimesRegions(['losangeles','boston','unitedkingdom','india','japan','newzealand'])
-dc.postTimesRegions(['losangeles', 'boston'])
 #dc.getUserPostTimesForSub('providence')
 #dc.plotUserPostTimes('m1327')
 
