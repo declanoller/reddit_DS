@@ -17,14 +17,14 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 
 
-dbt = DataCollection(verbose=1,N_users=5,N_post_limit=500)
+dc = DataCollection(verbose=1, N_users=5, N_post_limit=500)
 
-#dbt.meanPostTimesRegions(['nyc','losangeles'])
-#dbt.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
-#dbt.postTimesRegions(['losangeles','boston','unitedkingdom','india','japan','newzealand'])
-dbt.postTimesRegions(['losangeles'])
-#dbt.getUserPostTimesForSub('providence')
-#dbt.plotUserPostTimes('m1327')
+#dc.meanPostTimesRegions(['nyc','losangeles'])
+#dc.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
+#dc.postTimesRegions(['losangeles','boston','unitedkingdom','india','japan','newzealand'])
+dc.postTimesRegions(['losangeles', 'boston'])
+#dc.getUserPostTimesForSub('providence')
+#dc.plotUserPostTimes('m1327')
 
 
 #

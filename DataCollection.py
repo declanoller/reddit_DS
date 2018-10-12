@@ -179,10 +179,11 @@ class DataCollection:
         columns = ['user'] + ['bin'+str(i) for i in range(self.N_bins)] + ['subreddit']
 
         if user == None and bin_vals == None and subreddit == None:
-            col_vals = [[]]*self.N_bins
+            # +2 for the user and subreddit columns.
+            col_vals = [[]]*(self.N_bins + 2)
 
         else:
-            col_vals = [user] + bin_vals + [subreddit]
+            col_vals = [[user]] + [[bv] for bv in bin_vals] + [[subreddit]]
 
         return(dict(zip(columns, col_vals)))
 
@@ -235,8 +236,7 @@ class DataCollection:
         start_time = fst.getCurTimeObj()
         region_stats = pd.DataFrame(self.getDataFrameDict())
 
-        print('\n\nEstimated runtime for {} cities, {} users each, \
-        {} posts each: {} seconds'.format(len(region_list), self.N_users, self.N_post_limit,
+        print('\n\nEstimated runtime for {} cities, {} users each, {} posts each: {} seconds'.format(len(region_list), self.N_users, self.N_post_limit,
         len(region_list)*self.N_users*(2 + int(self.N_post_limit/500))))
 
         for subreddit in region_list:
