@@ -9,6 +9,7 @@ import requests
 from time import time, sleep
 import FileSystemTools as fst
 from collections import Counter
+import os
 
 class DataCollection:
 
@@ -22,7 +23,11 @@ class DataCollection:
         self.N_users = kwargs.get('N_users',300)
         self.N_post_limit = kwargs.get('N_post_limit',500)
         self.verbose = kwargs.get('verbose',0)
-        self.max_req_size = kwargs.get('max_req_size',500)
+
+        self.save_dat_dir = 'savedat'
+
+        self.base_fname = '{}users_{}bins_{}'.format(self.N_users, self.N_bins, fst.getDateString())
+        self.ext = '.csv'
 
         #number of users in comment following time zone
         city_tz_dict = {
@@ -101,7 +106,7 @@ class DataCollection:
 
     def getUsersInSub(self,subreddit):
 
-        request = 'https://api.pushshift.io/reddit/search/comment/?subreddit={}&aggs=author&size={}'.format(subreddit,self.max_req_size)
+        request = 'https://api.pushshift.io/reddit/search/comment/?subreddit={}&aggs=author&size=500'.format(subreddit)
         J = self.requestToJson(request)
         df = self.normalizeJson(J,field='author',aggs=True)
 
@@ -118,30 +123,24 @@ class DataCollection:
         return(user_list)
 
 
-    def getUserStartEndDates(self,user):
+    def getUserStartEndDates(self, user, subreddit=None):
         if(self.verbose): print('Collecting start end dates for user',user)
 
-        #For a user, get their beginning and ending dates of posting.
-        oldest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&fields=created_utc&size=5&sort=asc'.format(user)
+        #For a user, get their beginning and ending dates of posting. I've combined this one and the one for
+        #subreddit-specific, now you just pass it the subreddit if you want that, and nothing otherwise.
+        if subreddit == None:
+            oldest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&fields=created_utc&size=5&sort=asc'.format(user)
+        else:
+            oldest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&subreddit={}&fields=created_utc&size=5&sort=asc'.format(user,subreddit)
+
+        if subreddit == None:
+            newest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&fields=created_utc&size=5&sort=desc'.format(user)
+        else:
+            newest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&subreddit={}&fields=created_utc&size=5&sort=desc'.format(user,subreddit)
+
         oldest_df = self.normalizeJson(self.requestToJson(oldest_req))
         oldest_post = oldest_df['created_utc'].values.tolist()[0]
 
-        newest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&fields=created_utc&size=5&sort=desc'.format(user)
-        newest_df = self.normalizeJson(self.requestToJson(newest_req))
-        newest_post = newest_df['created_utc'].values.tolist()[0]
-
-        return((oldest_post,newest_post))
-
-
-    def getUserStartEndDatesForSub(self,user,subreddit):
-        if(self.verbose): print('Collecting start end dates for user {} in subreddit {}'.format(user,subreddit))
-
-        #For a user, get their beginning and ending dates of posting, in a particular subreddit.
-        oldest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&subreddit={}&fields=created_utc&size=5&sort=asc'.format(user,subreddit)
-        oldest_df = self.normalizeJson(self.requestToJson(oldest_req))
-        oldest_post = oldest_df['created_utc'].values.tolist()[0]
-
-        newest_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&subreddit={}&fields=created_utc&size=5&sort=desc'.format(user,subreddit)
         newest_df = self.normalizeJson(self.requestToJson(newest_req))
         newest_post = newest_df['created_utc'].values.tolist()[0]
 
@@ -152,7 +151,7 @@ class DataCollection:
 
         #All times at this point are in units of epoch, i.e., a long integer string.
         #start_time, end_time = self.getUserStartEndDates(user) #maybe depracated.
-        start_time, end_time = self.getUserStartEndDatesForSub(user,subreddit)
+        start_time, end_time = self.getUserStartEndDates(user, subreddit=subreddit)
 
         #You can only request up to 500 items at once, so we have to loop through until there's nothing left.
         after_time = start_time
@@ -160,7 +159,7 @@ class DataCollection:
         i = 0
 
         while True:
-            range_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&after={}&before={}&fields=created_utc&size={}&sort=asc'.format(user,after_time,end_time,self.max_req_size)
+            range_req = 'https://api.pushshift.io/reddit/search/comment/?author={}&after={}&before={}&fields=created_utc&size=500&sort=asc'.format(user,after_time,end_time)
             range_df = self.normalizeJson(self.requestToJson(range_req))
             if len(range_df) == 0 or len(post_times)>=self.N_post_limit:
                 break
@@ -170,8 +169,23 @@ class DataCollection:
                 after_time = range_list[-1]
                 i += 1
 
-        #print('took {} iterations, {} total posts'.format(i,len(post_times)))
         return(post_times)
+
+
+
+    def getDataFrameDict(self, user=None, bin_vals=None, subreddit=None):
+
+        #Creates a list of the column names for each dataframe, changes with N_bins
+        columns = ['user'] + ['bin'+str(i) for i in range(self.N_bins)] + ['subreddit']
+
+        if user == None and bin_vals == None and subreddit == None:
+            col_vals = [[]]*self.N_bins
+
+        else:
+            col_vals = [user] + bin_vals + [subreddit]
+
+        return(dict(zip(columns, col_vals)))
+
 
 
     def getUserPostTimesForSub(self,subreddit):
@@ -179,66 +193,59 @@ class DataCollection:
         users = self.getUsersInSub(subreddit)[:self.N_users]
         if(self.verbose):print('\ngetUserPostTimesForSub : limiting to',len(users),'users:',users,'\n')
 
-        user_post_times_condensed = []
-        user_post_times_all = []
-        fig, ax = plt.subplots(1,1,figsize=(8,8))
+        user_sub_stats = pd.DataFrame(self.getDataFrameDict())
 
         for i,user in enumerate(users):
             try:
                 if(self.verbose):print('\nGetting info for user: {} ({} out of {})'.format(user,i+1,len(users)))
                 post_times = self.getUserPostTimes(user,subreddit)
                 pt_binned = self.binPostTimes(post_times)
-                #most_common_bin, _ = Counter(pt_binned).most_common(1)[0]
-                max_bin = np.argmax(pt_binned)
-                user_post_times_all.append(pt_binned)
-                user_post_times_condensed.append(max_bin)
 
-                sns.distplot(self.postTimesToHours(post_times), bins=self.N_bins, kde=True, rug=False, hist=False)
-                #Should make these lines taller, but the math is annoying...
-                ax.vlines(max_bin,0,.1,linestyles='dashed')
+                #Appends the dataframe for this user to the one for the sub.
+                user_stats = pd.DataFrame(self.getDataFrameDict(user=user, bin_vals=pt_binned, subreddit=subreddit))
+                user_sub_stats = user_sub_stats.append(user_stats, ignore_index=True)
 
             except Exception as e:
                 print('problem at iteration {}: getting info for user: {}'.format(i, user))
 
 
-
-        ax.set_xlim(0,24)
-        ax.set_title('Post-time maxs dist. for subreddit: ' + subreddit)
-        ax.set_xlabel('Hour (24H)')
-        ax.set_ylabel('Post frequency')
-        plt.savefig('savefigs/{}_posttimes_{}.png'.format(subreddit,fst.getDateString()))
+        self.saveDataFrame(user_sub_stats, label=subreddit)
+        return(user_sub_stats)
 
 
-        fname = 'savedat/{}users_{}_subreddit_{}bins_{}.txt'.format(self.N_users, subreddit, self.N_bins, fst.getDateString())
-        np.savetxt(fname, np.array(user_post_times_all), fmt='%d')
 
-        #plt.show()
-        return(user_post_times_condensed)
-
+    def saveDataFrame(self, df, label=''):
+        fname = label + '_' + self.base_fname + self.ext
+        df.to_csv(fst.combineDirAndFile(self.run_dir, fname))
 
 
     def postTimesRegions(self,region_list):
 
         if(self.verbose):print('\nBegin processing postTimesRegion for:',region_list,'\n')
 
-        start_time = fst.getCurTimeObj()
-        region_stats = pd.DataFrame({'region':[],'post_time':[]})
+        self.run_dir = fst.combineDirAndFile(self.save_dat_dir, '_'.join(region_list) + '_' + self.base_fname)
 
+        if not os.path.isdir(self.run_dir):
+            print('Creating run dir: ',self.run_dir)
+            os.mkdir(self.run_dir)
+        else:
+            print('Problem creating run dir: ',self.run_dir)
+            exit(0)
+
+        start_time = fst.getCurTimeObj()
+        region_stats = pd.DataFrame(self.getDataFrameDict())
 
         print('\n\nEstimated runtime for {} cities, {} users each, \
         {} posts each: {} seconds'.format(len(region_list), self.N_users, self.N_post_limit,
-        len(region_list)*self.N_users*int(self.N_post_limit/500)))
-
+        len(region_list)*self.N_users*(2 + int(self.N_post_limit/500))))
 
         for subreddit in region_list:
             print('\n\nGetting stats for city {} ({} out of {})\n'.format(subreddit,region_list.index(subreddit)+1,len(region_list)))
-            '''stats = self.getUserPostTimesForSub(subreddit)
-            sub_stats = pd.DataFrame({'region':[subreddit]*len(stats),'post_time':stats})
-            region_stats = region_stats.append(sub_stats, ignore_index=True)'''
+
             try:
-                stats = self.getUserPostTimesForSub(subreddit)
-                sub_stats = pd.DataFrame({'region':[subreddit]*len(stats),'post_time':stats})
+                sub_stats = self.getUserPostTimesForSub(subreddit)
                 region_stats = region_stats.append(sub_stats, ignore_index=True)
+
             except Exception as e:
                 print('problem getting stats for city', subreddit)
                 print('exception:',e)
@@ -249,37 +256,22 @@ class DataCollection:
         print('\n\ntook this long to run: ' + fst.getTimeDiffStr(start_time))
         self.prettyPrintDB(region_stats)
 
-        fig, ax = plt.subplots(1,1,figsize=(16,12))
-        sns.violinplot(x='region', y='post_time', data=region_stats)
-        ax.set_title('Post-time maxs dist. for subreddits: ' + ', '.join(region_list))
-        ax.set_xlabel('city')
-        ax.set_ylabel('post_time (24H)')
-        plt.savefig('savefigs/{}_posttimes_{}.png'.format('_'.join(region_list),fst.getDateString()))
+        self.saveDataFrame(region_stats, label='all')
+
 
 
     def postTimesToHours(self,pt):
         pt_hours = np.array([datetime.strftime(datetime.utcfromtimestamp(ts),'%H') for ts in pt]).astype('int')
         return(pt_hours)
 
+
+
     def binPostTimes(self,pt):
         #This bins times in the epoch format to a list of times of whatever bin you choose. Right now it's by hour.
+        #the bins parameter defines the "boundaries" of the bins, so if you want to do by half hour, you'll have to
+        #give it a list of half integers (and also change postTimesToHours probably).
         bins = np.histogram(self.postTimesToHours(pt), bins=list(range(self.N_bins+1)))[0]
         return(bins)
 
 
-    def plotUserPostTimes(self,user):
-
-        pt = self.getUserPostTimes(user)
-
-
-        pt_hours = self.binPostTimes(pt)
-
-        dp = sns.distplot(pt_hours, bins=24, kde=True, rug=False, hist=False);
-        dp.axes.set_xlim(0,24)
-        dp.axes.set_title('Post-time dist. for user ' + user)
-        dp.axes.set_xlabel('Hour (24H)')
-        dp.axes.set_ylabel('Post frequency')
-        dp.axes.vlines(max(pt_hours),0,1,linestyles='dashed')
-        plt.savefig('savefigs/{}_posttimes.png'.format(user))
-        plt.show()
 #
