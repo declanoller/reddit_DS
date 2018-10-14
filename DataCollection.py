@@ -229,7 +229,7 @@ class DataCollection:
         df.to_csv(fst.combineDirAndFile(self.run_dir, fname))
 
 
-    def postTimesRegions(self,region_list):
+    def postTimesRegions(self, region_list):
 
         if(self.verbose):print('\nBegin processing postTimesRegion for:',region_list,'\n')
 
@@ -267,6 +267,11 @@ class DataCollection:
 
         self.saveDataFrame(region_stats, label='aggregate')
 
+
+
+    def predictRunTime(self, region_list):
+        print('\n\nEstimated runtime for {} cities, {} users each, {} posts each: {} seconds'.format(len(region_list), self.N_users, self.N_post_limit,
+        len(region_list)*self.N_users*(2 + int(self.N_post_limit/500))))
 
 
     def postTimesToHours(self,pt):

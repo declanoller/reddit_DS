@@ -8,6 +8,15 @@ import os
 from tabulate import tabulate
 import numpy as np
 
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import LinearRegression, Ridge, RidgeCV, ElasticNetCV, LassoCV, LassoLarsCV, Lasso, ElasticNet
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from sklearn.preprocessing import StandardScaler, LabelEncoder, RobustScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.kernel_ridge import KernelRidge
+#import xgboost as xgb
+#import lightgbm as lgb
+
 
 
 class ML:
@@ -28,8 +37,19 @@ class ML:
             print('Either no aggregate file, or too many. Exiting.')
             exit(0)
 
-        self.df = pd.read_csv(self.csv_file)
-        self.prettyPrintDB(self.df)
+        self.df = pd.read_csv(self.csv_file, index_col=0)
+        #self.prettyPrintDB(self.df)
+
+        #There's probably a cleaner way to do this, but it should work for now.
+        #It splits the file name, then looks for the part with 'bins', then takes the number before it.
+        fname_parts = fst.fnameFromFullPath(self.csv_file).split('_')
+        bins_part = [x for x in fname_parts if 'bins' in x]
+        assert len(bins_part)==1, print('bins_part is length {}, need len 1.'.format(len(bins_part)))
+        bins_part = bins_part[0]
+        self.N_bins = int(bins_part.replace('bins',''))
+        print(self.N_bins)
+
+        self.bin_names_ordered = ['bin'+str(i) for i in range(self.N_bins)]
 
         '''
         for now, self.df will be the main DF that's read in. Let's keep it like that,
@@ -38,6 +58,45 @@ class ML:
 
         '''
 
+        #number of users in comment following time zone
+        self.region_tz_dict = {
+        'anchorange' : -9,
+        'losangeles' : -8, #124k
+        'vancouver' : -8,
+        'denver' : -7, #77k
+        'dallas' : -6,
+        'chicago' : -6, #124k
+        'mexicocity' : -6,
+        'nyc' : -5, #154k
+        'boston' : -5, #100k
+        'washingtondc' : -5, #63k
+        'puertorico' : -4,
+        'buenosaires' : -3, #2k
+        'london' : 0,
+        'unitedkingdom' : 0, #210k
+        'ireland' : 0,
+        'paris' : 1, #19k
+        'france' : 1, #220k
+        'spain' : 1, #19k
+        'italy' : 1, #122k
+        'greece' : 2, #43k
+        'romania' : 2,
+        'saudiarabia' : 3, #7k
+        'pakistan' : 5, #19k
+        'india' : 5.5, #153k
+        'thailand' : 7,
+        'vietnam' : 7, #18k
+        'indonesia' : 7, #31k
+        'beijing' : 8,
+        'shanghai' : 8, #10k
+        'perth' : 8.75,
+        'taiwan' : 8, #20k
+        'japan' : 9, #138k
+        'korea' : 9, #60k
+        'sydney' : 10,
+        'melbourne' : 10,
+        'newzealand' : 12 #92k
+        }
 
 
 
@@ -52,46 +111,118 @@ class ML:
         pass
 
 
-    def userPostTimesSub():
+    def addTzCol(self):
+
+        if 'tz' not in self.df.columns.values:
+            region_vals = self.df['subreddit'].unique()
+            for reg in region_vals:
+                assert reg in self.region_tz_dict.keys(), print('Region {} in dataframe not in region_tz_dict!'.format(reg))
+
+            self.df['tz'] = self.df['subreddit'].apply(lambda x: self.region_tz_dict[x])
+
+        else:
+            print('Dataframe already has tz column!')
+
+
+    def trainTestSplit(self):
+
+        self.addTzCol()
+        #This does a TT split, and returns COPIES of the split DF's, so use them locally like that.
+        #It's not doing any K-fold cross val stuff, so we should do that later. This is just quick and dirty.
+        X_tr, X_test, y_tr, y_test = train_test_split(self.df.drop(['user','subreddit','tz'], axis=1), self.df['tz'], test_size=0.3, random_state=42)
+
+        print("shape of X_tr: {}".format(X_tr.shape))
+        print("shape of X_test: {}".format(X_test.shape))
+        print("shape of y_tr: {}".format(y_tr.shape))
+        print("shape of y_test: {}".format(y_test.shape))
+
+        return(X_tr, X_test, y_tr, y_test)
+
+
+
+    def simpleLinReg(self):
+
+        X_tr, X_test, y_tr, y_test = self.trainTestSplit()
+
+        lr = LinearRegression()
+        lr.fit(X_tr, y_tr)
+
+        print("\nLR train score: {}".format(lr.score(X_tr,y_tr)))
+        print("LR test score: {}".format(lr.score(X_test,y_test)))
+
+
+
+
+
+
+
+
+
+
+
+    def plotUserPostTimesSub(self, subreddit):
 
         fig, ax = plt.subplots(1,1,figsize=(8,8))
 
-        sns.distplot(self.postTimesToHours(post_times), bins=self.N_bins, kde=True, rug=False, hist=False)
-        #Should make these lines taller, but the math is annoying...
-        ax.vlines(max_bin,0,.1,linestyles='dashed')
+        df_subreddit = self.df[self.bin_names_ordered][self.df['subreddit']==subreddit]
 
-        ax.set_xlim(0,24)
-        ax.set_title('Post-time maxs dist. for subreddit: ' + subreddit)
+        for i in range(len(df_subreddit)):
+            dat = df_subreddit.iloc[i].values
+            ax.plot(dat)
+
+        ax.set_xlim(0, self.N_bins)
         ax.set_xlabel('Hour (24H)')
         ax.set_ylabel('Post frequency')
-        plt.savefig('savefigs/{}_posttimes_{}.png'.format(subreddit,fst.getDateString()))
+        ax.set_title('Post-time maxs dist. for subreddit: ' + subreddit)
+        plt.show()
+        #plt.savefig('savefigs/{}_posttimes_{}.png'.format(subreddit,fst.getDateString()))
 
 
-    def postTimesRegion():
+    def postAvgTimesByRegion(self, type='horizontal'):
 
-        fig, ax = plt.subplots(1,1,figsize=(16,12))
-        sns.violinplot(x='region', y='post_time', data=region_stats)
-        ax.set_title('Post-time maxs dist. for subreddits: ' + ', '.join(region_list))
-        ax.set_xlabel('city')
-        ax.set_ylabel('post_time (24H)')
-        plt.savefig('savefigs/{}_posttimes_{}.png'.format('_'.join(region_list),fst.getDateString()))
+        #This plots the df, plotting the distributions for each subreddit, averaged over all
+        #the users for that subreddit.
+
+        fig, ax = plt.subplots(1,1,figsize=(12,8))
+
+        unique_subs = self.df['subreddit'].unique()
+
+        for sub in unique_subs:
+
+            df_subreddit = self.df[self.bin_names_ordered][self.df['subreddit']==sub]
+            df_subreddit_sum = df_subreddit.sum()
+            ax.plot((df_subreddit_sum/df_subreddit_sum.sum()).values, label=sub)
+
+        ax.legend()
+        ax.set_xlim(0, self.N_bins)
+        ax.set_xlabel('Hour (24H)')
+        ax.set_ylabel('Post frequency')
+        #plt.savefig('savefigs/{}_posttimes_{}.png'.format('_'.join(region_list),fst.getDateString()))
+        plt.show()
 
 
 
-    def plotUserPostTimes(self,user):
+    def plotUserPostTimes(self, user):
 
-        pt = self.getUserPostTimes(user)
+        #You can pass it either a single user, or a list of users.
+
+        fig, ax = plt.subplots(1,1,figsize=(8,6))
+
+        if len(user)==0:
+            dat = self.df[self.bin_names_ordered][self.df['user']==user].values[0]
+            ax.plot(dat, color='tomato', marker='o')
+            ax.set_title('Post-time dist. for user ' + user)
+        else:
+            for u in user:
+                dat = self.df[self.bin_names_ordered][self.df['user']==u].values[0]
+                ax.plot(dat)
+            ax.set_title('Post-time dist. for users ' + ', '.join(user))
 
 
-        pt_hours = self.binPostTimes(pt)
-
-        dp = sns.distplot(pt_hours, bins=24, kde=True, rug=False, hist=False);
-        dp.axes.set_xlim(0,24)
-        dp.axes.set_title('Post-time dist. for user ' + user)
-        dp.axes.set_xlabel('Hour (24H)')
-        dp.axes.set_ylabel('Post frequency')
-        dp.axes.vlines(max(pt_hours),0,1,linestyles='dashed')
-        plt.savefig('savefigs/{}_posttimes.png'.format(user))
+        ax.set_xlim(0, self.N_bins)
+        ax.set_xlabel('Hour (24H)')
+        ax.set_ylabel('Post frequency')
+        #plt.savefig('savefigs/{}_posttimes.png'.format(user))
         plt.show()
 
 

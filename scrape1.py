@@ -16,15 +16,22 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 '''
 
-
-
-
 ml = ML('/home/declan/Documents/code/reddit_DS/savedat/losangeles_boston_5users_24bins_18-46-47')
 
+ml.postAvgTimesByRegion()
+#ml.plotUserPostTimes('405freeway')
+#ml.plotUserPostTimesSub('boston')
+#ml.plotUserPostTimes(['405freeway', 'cpxh'])
+
+#ml.simpleLinReg()
 
 exit(0)
-dc = DataCollection(verbose=1, N_users=5, N_post_limit=500)
-dc.postTimesRegions(['losangeles', 'boston'])
+
+dc = DataCollection(verbose=1, N_users=1000, N_post_limit=500)
+dc.predictRunTime(['nyc','losangeles','unitedkingdom','france','greece','saudiarabia','pakistan','indonesia','taiwan','japan','melbourne','newzealand'])
+
+
+
 
 #dc.meanPostTimesRegions(['nyc','losangeles'])
 #dc.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
