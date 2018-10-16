@@ -1,6 +1,7 @@
 import pandas as pd
 
-from DBTools import DBTools
+from DataCollection import DataCollection
+from ML import ML
 
 '''
 
@@ -15,21 +16,24 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 '''
 
+# ml = ML('/Users/rizki/Documents/Projects/withDeclan/reddit_DS/savedat/losangeles_boston_5users_24bins_18-46-47')
+
+# ml.postAvgTimesByRegion()
+#ml.plotUserPostTimes('405freeway')
+#ml.plotUserPostTimesSub('boston')
+#ml.plotUserPostTimes(['405freeway', 'cpxh'])
+
+#ml.simpleLinReg()
+
+# exit(0)
+
+dc = DataCollection(verbose=1, N_users=10, N_post_limit=50)
+# dc.predictRunTime(['nyc','losangeles','unitedkingdom','france','greece','saudiarabia','pakistan','indonesia','taiwan','japan','melbourne','newzealand'])
 
 
-dbt = DBTools(N_users=10,
-			  N_post_limit=50,
-			  verbose=1,
-			  max_req_size=500)
+#dc.meanPostTimesRegions(['nyc','losangeles'])
+#dc.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
+dc.postTimesRegions(['losangeles','london','bali'])
+#dc.getUserPostTimesForSub('providence')
+#dc.plotUserPostTimes('m1327')
 
-#note the following method requires the existence of the following folders: "savedat","savefig". Need to configure this. 
-dbt.postTimesRegions(['losangeles','london','bali'])
-
-
-#dbt.meanPostTimesRegions(['nyc','losangeles'])
-#dbt.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
-#dbt.getUserPostTimesForSub('providence')
-#dbt.plotUserPostTimes('m1327')
-
-
-#
