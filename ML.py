@@ -89,6 +89,7 @@ class ML:
         'thailand' : 7,
         'vietnam' : 7, #18k
         'indonesia' : 7, #31k
+        'bali' : 8, 
         'beijing' : 8,
         'shanghai' : 8, #10k
         'perth' : 8.75,
