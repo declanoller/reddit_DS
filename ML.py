@@ -427,11 +427,7 @@ class ML:
 
             df_subreddit = self.df[self.bin_names_ordered][self.df['subreddit']==sub]
             df_subreddit_sum = df_subreddit.sum()
-<<<<<<< HEAD
             ax.plot((df_subreddit_sum/df_subreddit_sum.sum()).values, label=(sub + ' ({})'.format(self.region_tz_dict[sub])))
-=======
-            ax.plot((df_subreddit_sum/df_subreddit_sum.sum()).values, label=sub+' ('+str(self.region_tz_dict[sub])+')')
->>>>>>> add more cities, add lightgbm with custom loss
 
         ax.legend()
         ax.set_xlim(0, self.N_bins)
@@ -464,7 +460,6 @@ class ML:
         ax.set_ylabel('Post frequency')
         #plt.savefig('savefigs/{}_posttimes.png'.format(user))
         plt.show()
-
 
     def run_lightgbm(self):
 
