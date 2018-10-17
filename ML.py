@@ -17,8 +17,16 @@ from sklearn.pipeline import make_pipeline
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import make_scorer
 #import xgboost as xgb
-#import lightgbm as lgb
+import lightgbm as lgb
 
+
+# f(preds: array, train_data: Dataset) -> name: string, eval_result: float, is_higher_better: bool
+def custom_metric(y_pred, train_data):
+    y_true = train_data.get_label()
+    diff = np.abs(y_true - y_pred)
+    diff[diff>12] = 24 - diff
+    err=np.mean(diff)
+    return 'custom diff error',err,False
 
 
 class ML:
@@ -85,6 +93,7 @@ class ML:
         'ireland' : 0,
         'paris' : 1, #19k
         'france' : 1, #220k
+        'geneva': 1,
         'spain' : 1, #19k
         'italy' : 1, #122k
         'geneva' : 1,
@@ -362,7 +371,6 @@ class ML:
 
 
 
-
     def addExtraDataSets(self, dirs):
         #You can either pass this a list or a single dir.
         #This is for adding data in other dirs to self.df. You just pass it the
@@ -385,7 +393,6 @@ class ML:
 
             extra_df = pd.read_csv(csv_file, index_col=0)
             self.df = self.df.append(extra_df, ignore_index=True)
-
 
 
 
@@ -420,7 +427,11 @@ class ML:
 
             df_subreddit = self.df[self.bin_names_ordered][self.df['subreddit']==sub]
             df_subreddit_sum = df_subreddit.sum()
+<<<<<<< HEAD
             ax.plot((df_subreddit_sum/df_subreddit_sum.sum()).values, label=(sub + ' ({})'.format(self.region_tz_dict[sub])))
+=======
+            ax.plot((df_subreddit_sum/df_subreddit_sum.sum()).values, label=sub+' ('+str(self.region_tz_dict[sub])+')')
+>>>>>>> add more cities, add lightgbm with custom loss
 
         ax.legend()
         ax.set_xlim(0, self.N_bins)
@@ -454,6 +465,47 @@ class ML:
         #plt.savefig('savefigs/{}_posttimes.png'.format(user))
         plt.show()
 
+
+    def run_lightgbm(self):
+
+        x_train,x_val,y_train,y_val = self.trainTestSplit()
+        lgb_train = lgb.Dataset(x_train, label=y_train)
+        lgb_test = lgb.Dataset(x_val, label=y_val)
+
+        evals_result={}
+        lgb_params = {
+                       'objective': 'mse',
+                       'metric': 'custom_metric',
+                       'nthread':4, 
+                       'learning_rate': 0.03, 
+                       'verbose':1,
+                       'min_data':2,
+                       'min_data_in_bin':1,
+                      }
+
+        num_boost_round = 300
+        verbose_eval = int(num_boost_round/5)
+        model = lgb.train(lgb_params, 
+                          lgb_train,
+                          valid_sets=[lgb_train, lgb_test],
+                          valid_names=['train','eval'],
+                          num_boost_round=num_boost_round,
+                          evals_result=evals_result,
+                          early_stopping_rounds=100,
+                          verbose_eval=verbose_eval,
+                          feval=custom_metric,
+                          )
+
+        print('Plot metrics recorded during training...')
+
+        ax = lgb.plot_metric(evals_result, metric='custom diff error')
+        #if(saveplots):plt.savefig(saveFolder+"/"+"lgb_plot_metric_"+saveName+".pdf")
+
+        print('Plot feature importances...')
+        ax = lgb.plot_importance(model, max_num_features=x_val.shape[1])
+        # if(saveplots):plt.savefig(saveFolder+"/"+"lgb_plot_importance_"+saveName+".pdf")
+
+        plt.show()
 
 
 
