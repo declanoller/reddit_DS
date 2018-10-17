@@ -17,8 +17,16 @@ from sklearn.pipeline import make_pipeline
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import make_scorer
 #import xgboost as xgb
-#import lightgbm as lgb
+import lightgbm as lgb
 
+
+# f(preds: array, train_data: Dataset) -> name: string, eval_result: float, is_higher_better: bool
+def custom_metric(y_pred, train_data):
+    y_true = train_data.get_label()
+    diff = np.abs(y_true - y_pred)
+    diff[diff>12] = 24 - diff
+    err=np.mean(diff)
+    return 'custom diff error',err,False
 
 
 class ML:
@@ -64,6 +72,7 @@ class ML:
         self.region_tz_dict = {
         'anchorange' : -9,
         'losangeles' : -8, #124k
+        'sanfrancisco' : -8,
         'vancouver' : -8,
         'denver' : -7, #77k
         'dallas' : -6,
@@ -79,6 +88,7 @@ class ML:
         'ireland' : 0,
         'paris' : 1, #19k
         'france' : 1, #220k
+        'geneva': 1,
         'spain' : 1, #19k
         'italy' : 1, #122k
         'greece' : 2, #43k
@@ -291,14 +301,52 @@ class ML:
 
 
 
-
     def combineDataSets(self):
         pass
         #We should make this, so you can give it several diff directories, and it will
         #combine them into a single DF.
 
 
+    def run_lightgbm(self):
 
+        x_train,x_val,y_train,y_val = self.trainTestSplit()
+        lgb_train = lgb.Dataset(x_train, label=y_train)
+        lgb_test = lgb.Dataset(x_val, label=y_val)
+
+        evals_result={}
+        lgb_params = {
+                       'objective': 'mse',
+                       'metric': 'custom_metric',
+                       'nthread':4, 
+                       'learning_rate': 0.03, 
+                       'verbose':1,
+                       'min_data':2,
+                       'min_data_in_bin':1,
+                      }
+
+        num_boost_round = 300
+        verbose_eval = int(num_boost_round/5)
+        model = lgb.train(lgb_params, 
+                          lgb_train,
+                          valid_sets=[lgb_train, lgb_test],
+                          valid_names=['train','eval'],
+                          num_boost_round=num_boost_round,
+                          evals_result=evals_result,
+                          early_stopping_rounds=100,
+                          verbose_eval=verbose_eval,
+                          feval=custom_metric,
+                          )
+
+        print('Plot metrics recorded during training...')
+
+        ax = lgb.plot_metric(evals_result, metric='custom diff error')
+        #if(saveplots):plt.savefig(saveFolder+"/"+"lgb_plot_metric_"+saveName+".pdf")
+
+        print('Plot feature importances...')
+        ax = lgb.plot_importance(model, max_num_features=x_val.shape[1])
+        # if(saveplots):plt.savefig(saveFolder+"/"+"lgb_plot_importance_"+saveName+".pdf")
+
+        plt.show()
 
 
 
