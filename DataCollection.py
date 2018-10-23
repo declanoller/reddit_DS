@@ -245,8 +245,7 @@ class DataCollection:
         start_time = fst.getCurTimeObj()
         region_stats = pd.DataFrame(self.getDataFrameDict())
 
-        print('\n\nEstimated runtime for {} cities, {} users each, {} posts each: {} seconds'.format(len(region_list), self.N_users, self.N_post_limit,
-        len(region_list)*self.N_users*(2 + int(self.N_post_limit/500))))
+        self.predictRunTime(region_list)
 
         for subreddit in region_list:
             print('\n\nGetting stats for city {} ({} out of {})\n'.format(subreddit,region_list.index(subreddit)+1,len(region_list)))
@@ -261,7 +260,6 @@ class DataCollection:
 
             print('\n\ntook this long for {}: {}'.format(subreddit,fst.getTimeDiffStr(start_time)))
 
-        #self.prettyPrintDB(region_stats)
         print('\n\ntook this long to run: ' + fst.getTimeDiffStr(start_time))
         self.prettyPrintDB(region_stats)
 

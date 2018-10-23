@@ -8,12 +8,14 @@ import os
 from tabulate import tabulate
 import numpy as np
 
+
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LinearRegression, Ridge, RidgeCV, ElasticNetCV, LassoCV, LassoLarsCV, Lasso, ElasticNet
 from sklearn.model_selection import train_test_split, cross_val_score, KFold
 from sklearn.preprocessing import StandardScaler, LabelEncoder, RobustScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.kernel_ridge import KernelRidge
+from sklearn.metrics import make_scorer
 #import xgboost as xgb
 #import lightgbm as lgb
 
@@ -100,11 +102,24 @@ class ML:
 
 
 
-    def prettyPrintDB(self,df):
+    def prettyPrintDB(self, df):
+
+        self.addTzCol()
 
         print(tabulate(df.head(), headers=df.columns.values, tablefmt='psql'))
         print('\n')
-        print('columns: ', df.columns)
+
+        print('\nColumns: ', df.columns)
+
+        print('\nUnique subreddits: ',df['subreddit'].unique())
+
+        print('\n\nUsers per subreddit: ')
+        sub_grouped = df.groupby(['subreddit'])[['subreddit']].count()
+        print(tabulate(sub_grouped, headers=['subreddit', 'counts'], tablefmt='psql'))
+
+        print('\n\nUsers per timezone: ')
+        sub_grouped = df.groupby(['tz'])[['tz']].count()
+        print(tabulate(sub_grouped, headers=['tz', 'counts'], tablefmt='psql'))
 
 
     def preprocessing():
@@ -112,6 +127,9 @@ class ML:
 
 
     def addTzCol(self):
+
+        #This adds the timezone to the df, using the dict in init(). It's okay to call it repeatedly
+        #because it first checks if it's already there.
 
         if 'tz' not in self.df.columns.values:
             region_vals = self.df['subreddit'].unique()
@@ -124,6 +142,7 @@ class ML:
             print('Dataframe already has tz column!')
 
 
+
     def trainTestSplit(self):
 
         self.addTzCol()
@@ -131,29 +150,151 @@ class ML:
         #It's not doing any K-fold cross val stuff, so we should do that later. This is just quick and dirty.
         X_tr, X_test, y_tr, y_test = train_test_split(self.df.drop(['user','subreddit','tz'], axis=1), self.df['tz'], test_size=0.3, random_state=42)
 
-        print("shape of X_tr: {}".format(X_tr.shape))
+        '''print("shape of X_tr: {}".format(X_tr.shape))
         print("shape of X_test: {}".format(X_test.shape))
         print("shape of y_tr: {}".format(y_tr.shape))
-        print("shape of y_test: {}".format(y_test.shape))
+        print("shape of y_test: {}".format(y_test.shape))'''
 
         return(X_tr, X_test, y_tr, y_test)
+
+
+    def customCyclicMetric(self, y_pred, y_true):
+        #y_true = train_data.get_label()
+        diff = abs(y_true - y_pred)
+        if type(y_pred).__name__=='Tensor':
+            diff[diff>12] = 24 - diff[diff>12]
+        else:
+            diff[diff>12] = 24 - diff
+        #err = np.mean(diff)
+        err = sum(diff)/len(diff)
+        return(err)
+
+
+    def cyclicMetricSGD(self, show_plot=False, alpha=10**-4, timesteps=10**3):
+
+        import torch
+        torch_dtype = torch.float32
+        torch.set_default_dtype(torch_dtype)
+
+        X_tr, X_test, y_tr, y_test = self.trainTestSplit()
+
+        #This is the set of linear weights.
+        #Not doing any regularization right now, which we might want to do.
+        #Also, it technically doesn't have a bias term, I think...should probably add that.
+        W = torch.zeros((self.N_bins,1), requires_grad=True)
+
+        X_tr_tensor = torch.tensor(X_tr.values, requires_grad=False, dtype=torch_dtype)
+        X_test_tensor = torch.tensor(X_test.values, requires_grad=False, dtype=torch_dtype)
+        y_tr_tensor = torch.tensor(y_tr.values, requires_grad=False, dtype=torch_dtype)
+        y_test_tensor = torch.tensor(y_test.values, requires_grad=False, dtype=torch_dtype)
+
+        y_tr_tensor = y_tr_tensor.unsqueeze(dim=1)
+        y_test_tensor = y_test_tensor.unsqueeze(dim=1)
+
+
+        #From some short testing, using alpha from 10^-3 to 10^-6 seems good.
+        #alpha = 10**-3
+        w_history = np.array(W.detach().numpy())
+        print('\n')
+        t_range = timesteps
+        for t in range(t_range):
+
+            y_pred_tensor = X_tr_tensor.mm(W)
+            loss = self.customCyclicMetric(y_pred_tensor, y_tr_tensor)
+            loss.backward()
+
+            if t%int(t_range/10)==0:
+                print('iteration {}/{}, loss: {:.2f}'.format(t, t_range, loss.item()))
+
+            with torch.no_grad():
+                W -= alpha*W.grad
+                W.grad.zero_()
+
+            w_history = np.concatenate((w_history,W.detach().numpy()), axis=1)
+
+
+        print('\n\nfinal W values: {}'.format(W.squeeze().detach().numpy()))
+
+        y_tr_pred_tensor = X_tr_tensor.mm(W)
+        y_test_pred_tensor = X_test_tensor.mm(W)
+        loss = self.customCyclicMetric(y_test_pred_tensor, y_test_tensor)
+
+        print('\nLoss from test data set: {:.4f}'.format(loss.item()))
+
+        fig, ax = plt.subplots(1, 1, figsize=(16,8))
+        #for i in range(5):
+        for i in range(w_history.shape[0]):
+            plt.plot(w_history[i,:],label='w'+str(i+1))
+
+        plt.legend()
+        plt.title('alpha = '+str(alpha))
+        plt.xlabel('SGD iterations')
+        plt.ylabel('weight values')
+        plt.savefig('SGD_weights_converge_alpha{}_{}steps.png'.format(alpha, t_range))
+        if show_plot:
+            plt.show()
+
+        y_tr_pred = y_tr_pred_tensor.squeeze().detach().numpy()
+        y_tr_true = y_tr_tensor.squeeze().detach().numpy()
+        y_test_pred = y_test_pred_tensor.squeeze().detach().numpy()
+        y_test_true = y_test_tensor.squeeze().detach().numpy()
+
+        fig, axes = plt.subplots(1, 2, figsize=(16,8))
+        ax_train = axes[0]
+        ax_test = axes[1]
+
+        df_tr = pd.DataFrame({'true':y_tr_true, 'pred':y_tr_pred})
+        df_test = pd.DataFrame({'true':y_test_true, 'pred':y_test_pred})
+
+        mean_tr = df_tr.groupby(['true']).mean()
+        tr_bins = mean_tr.index.values
+        mean_tr_pred = mean_tr.values[:,0]
+
+        mean_test = df_test.groupby(['true']).mean()
+        test_bins = mean_test.index.values
+        mean_test_pred = mean_test.values[:,0]
+
+        ideal = np.arange(-12, 13, 1)
+        ax_train.plot(y_tr_true, y_tr_pred, color='tomato', marker='+', linestyle='None')
+        ax_train.plot(ideal, ideal, color='lightgray', label='ideal')
+        ax_train.plot(tr_bins, mean_tr_pred, color='black', marker='+', markersize=15, linestyle='dashed', label='bin avg')
+        ax_train.set_xlabel('true train y values (time zone)')
+        ax_train.set_ylabel('pred train y values (time zone)')
+        ax_train.set_xlim((-13,13))
+        ax_train.legend()
+
+        ax_test.plot(y_test_true, y_test_pred, color='cornflowerblue', marker='+', linestyle='None')
+        ax_test.plot(ideal, ideal, color='lightgray', label='ideal')
+        ax_test.plot(test_bins, mean_test_pred, color='black', marker='+', markersize=15, linestyle='dashed', label='bin avg')
+        ax_test.set_xlabel('true test y values (time zone)')
+        ax_test.set_ylabel('pred test y values (time zone)')
+        ax_test.set_xlim((-13,13))
+        ax_test.legend()
+
+        plt.savefig('SGD_predictions_alpha{}_{}steps.png'.format(alpha, t_range))
+        if show_plot:
+            plt.show()
 
 
 
     def simpleLinReg(self):
 
+        #This is garbage right now.
         X_tr, X_test, y_tr, y_test = self.trainTestSplit()
 
         lr = LinearRegression()
         lr.fit(X_tr, y_tr)
 
-        print("\nLR train score: {}".format(lr.score(X_tr,y_tr)))
+        print("\n\nLR train score: {}".format(lr.score(X_tr,y_tr)))
         print("LR test score: {}".format(lr.score(X_test,y_test)))
 
 
 
 
-
+    def combineDataSets(self):
+        pass
+        #We should make this, so you can give it several diff directories, and it will
+        #combine them into a single DF.
 
 
 
@@ -191,13 +332,13 @@ class ML:
 
             df_subreddit = self.df[self.bin_names_ordered][self.df['subreddit']==sub]
             df_subreddit_sum = df_subreddit.sum()
-            ax.plot((df_subreddit_sum/df_subreddit_sum.sum()).values, label=sub)
+            ax.plot((df_subreddit_sum/df_subreddit_sum.sum()).values, label=(sub + ' ({})'.format(self.region_tz_dict[sub])))
 
         ax.legend()
         ax.set_xlim(0, self.N_bins)
         ax.set_xlabel('Hour (24H)')
         ax.set_ylabel('Post frequency')
-        #plt.savefig('savefigs/{}_posttimes_{}.png'.format('_'.join(region_list),fst.getDateString()))
+        plt.savefig('savefigs/{}_posttimes_{}.png'.format('_'.join(unique_subs),fst.getDateString()))
         plt.show()
 
 

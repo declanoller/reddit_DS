@@ -16,19 +16,32 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 '''
 
-ml = ML('/home/declan/Documents/code/reddit_DS/savedat/losangeles_boston_5users_24bins_18-46-47')
-
+ml = ML('/home/declan/Documents/code/reddit_DS/savedat/nyc_losangeles_unitedkingdom_greece_indonesia_japan_newzealand_1000users_24bins_00-16-17')
+#ml.prettyPrintDB(ml.df)
 ml.postAvgTimesByRegion()
+#ml.simpleLinReg()
+exit(0)
+
+
+ml.cyclicMetricSGD(alpha=10**-3, timesteps=4000, show_plot=False)
+ml.cyclicMetricSGD(alpha=10**-5, timesteps=4000, show_plot=False)
+ml.cyclicMetricSGD(alpha=10**-3, timesteps=40000, show_plot=False)
+ml.cyclicMetricSGD(alpha=10**-5, timesteps=40000, show_plot=False)
+
+
+dc = DataCollection(verbose=1, N_users=1000, N_post_limit=500)
+#dc.predictRunTime(['nyc','losangeles','unitedkingdom','greece','indonesia','japan','newzealand'])
+dc.postTimesRegions(['nyc','losangeles','unitedkingdom','greece','indonesia','japan','newzealand'])
+exit(0)
+
+
+
 #ml.plotUserPostTimes('405freeway')
 #ml.plotUserPostTimesSub('boston')
 #ml.plotUserPostTimes(['405freeway', 'cpxh'])
 
-#ml.simpleLinReg()
 
-exit(0)
 
-dc = DataCollection(verbose=1, N_users=1000, N_post_limit=500)
-dc.predictRunTime(['nyc','losangeles','unitedkingdom','france','greece','saudiarabia','pakistan','indonesia','taiwan','japan','melbourne','newzealand'])
 
 
 
