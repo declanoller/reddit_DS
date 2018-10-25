@@ -27,13 +27,27 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 # exit(0)
 
-dc = DataCollection(verbose=1, N_users=10, N_post_limit=50)
-# dc.predictRunTime(['nyc','losangeles','unitedkingdom','france','greece','saudiarabia','pakistan','indonesia','taiwan','japan','melbourne','newzealand'])
+# dc = DataCollection(verbose=1, N_users=10, N_post_limit=50)
+# dc.postTimesRegions(['losangeles','london','bali'])
+
+# Ran on Oct 14,2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=500)
+# dc.postTimesRegions(['sanfrancisco','geneva','sydney'])
+
+# Ran on Oct 16, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['chicago','moscow','india']) # this got cut at moscow
+
+# Ran on Oct 17, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['moscow','india'])
+
+# Ran on Oct 19, 2018, # this got cut at brazil at 94/98
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['denver','brazil','turkey'])
 
 
-#dc.meanPostTimesRegions(['nyc','losangeles'])
-#dc.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
-dc.postTimesRegions(['losangeles','london','bali'])
-#dc.getUserPostTimesForSub('providence')
-#dc.plotUserPostTimes('m1327')
+# Ran on Oct 19, 2018, this took ~20 mins.
+dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+dc.postTimesRegions(['brazil','turkey'])
 
