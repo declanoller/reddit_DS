@@ -28,14 +28,6 @@ def custom_metric(y_pred, train_data):
     err=np.mean(diff)
     return 'custom diff error',err,False
 
-# f(preds: array, train_data: Dataset) -> name: string, eval_result: float, is_higher_better: bool
-def custom_metric(y_pred, train_data):
-    y_true = train_data.get_label()
-    diff = np.abs(y_true - y_pred)
-    diff[diff>12] = 24 - diff
-    err=np.mean(diff)
-    return 'custom diff error',err,False
-
 
 class ML:
 
