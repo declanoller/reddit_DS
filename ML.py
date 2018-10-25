@@ -86,6 +86,7 @@ class ML:
         'boston' : -5, #100k
         'washingtondc' : -5, #63k
         'puertorico' : -4,
+        'brazil': -3, #(-4,3)
         'buenosaires' : -3, #2k
         'brazil' : -3,
         'london' : 0,
@@ -106,7 +107,7 @@ class ML:
         'india' : 5.5, #153k
         'thailand' : 7,
         'vietnam' : 7, #18k
-        'indonesia' : 7, #31k
+        'indonesia' : 7,#(7,8,9), #31k
         'bali' : 8, 
         'beijing' : 8,
         'shanghai' : 8, #10k
@@ -461,9 +462,11 @@ class ML:
         #plt.savefig('savefigs/{}_posttimes.png'.format(user))
         plt.show()
 
-    def run_lightgbm(self):
 
-        x_train,x_val,y_train,y_val = self.trainTestSplit()
+
+    def run_lightgbm(self,x_train,x_val,y_train,y_val):
+
+        #x_train,x_val,y_train,y_val = self.trainTestSplit()
         lgb_train = lgb.Dataset(x_train, label=y_train)
         lgb_test = lgb.Dataset(x_val, label=y_val)
 
@@ -502,6 +505,7 @@ class ML:
 
         plt.show()
 
+        return model
 
 
 
