@@ -82,6 +82,7 @@ class ML:
         'boston' : -5, #100k
         'washingtondc' : -5, #63k
         'puertorico' : -4,
+        'brazil': -3, #(-4,3)
         'buenosaires' : -3, #2k
         'london' : 0,
         'unitedkingdom' : 0, #210k
@@ -94,11 +95,13 @@ class ML:
         'greece' : 2, #43k
         'romania' : 2,
         'saudiarabia' : 3, #7k
+        'turkey': 3,
+        'moscow':3,
         'pakistan' : 5, #19k
         'india' : 5.5, #153k
         'thailand' : 7,
         'vietnam' : 7, #18k
-        'indonesia' : 7, #31k
+        'indonesia' : 7,#(7,8,9), #31k
         'bali' : 8, 
         'beijing' : 8,
         'shanghai' : 8, #10k
@@ -307,9 +310,9 @@ class ML:
         #combine them into a single DF.
 
 
-    def run_lightgbm(self):
+    def run_lightgbm(self,x_train,x_val,y_train,y_val):
 
-        x_train,x_val,y_train,y_val = self.trainTestSplit()
+        #x_train,x_val,y_train,y_val = self.trainTestSplit()
         lgb_train = lgb.Dataset(x_train, label=y_train)
         lgb_test = lgb.Dataset(x_val, label=y_val)
 
@@ -348,6 +351,7 @@ class ML:
 
         plt.show()
 
+        return model
 
 
     def plotUserPostTimesSub(self, subreddit):
