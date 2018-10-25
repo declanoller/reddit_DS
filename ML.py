@@ -91,9 +91,9 @@ class ML:
         'detroit' : -5,
         'puertorico' : -4,
         'venezuela' : -4,
+        'brazil': -3, #(-4,3)
         'buenosaires' : -3, #2k
         'riodejaneiro' : -3,
-        'brazil' : -3,
         'london' : 0,
         'unitedkingdom' : 0, #210k
         'ireland' : 0,
@@ -116,7 +116,7 @@ class ML:
         'thailand' : 7,
         'bangkok' : 7,
         'vietnam' : 7, #18k
-        'indonesia' : 7, #31k
+        'indonesia' : 7,#(7,8,9), #31k
         'bali' : 8, 
         'beijing' : 8,
         'shanghai' : 8, #10k
@@ -572,13 +572,11 @@ class ML:
         #plt.savefig('savefigs/{}_posttimes.png'.format(user))
         plt.show()
 
+    def run_lightgbm(self,x_train,x_val,y_train,y_val):
 
-    def run_lightgbm(self):
-
-        x_train,x_val,y_train,y_val = self.trainTestSplit()
+        #x_train,x_val,y_train,y_val = self.trainTestSplit()
         lgb_train = lgb.Dataset(x_train, label=y_train)
         lgb_test = lgb.Dataset(x_val, label=y_val)
-
         evals_result={}
         lgb_params = {
                        'objective': 'mse',
@@ -613,6 +611,7 @@ class ML:
         # if(saveplots):plt.savefig(saveFolder+"/"+"lgb_plot_importance_"+saveName+".pdf")
 
         plt.show()
+        return model
 
 
 
