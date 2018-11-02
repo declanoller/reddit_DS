@@ -36,20 +36,24 @@ class ML:
         if len(file_list) == 1:
             self.csv_file = file_list[0]
         else:
-            print('Either no aggregate file, or too many. Exiting.')
-            exit(0)
+            print('Either no aggregate file, or too many.')
+            print('Attempting to make aggregate file...')
+            self.createAggFile()
 
         self.df = pd.read_csv(self.csv_file, index_col=0)
         #self.prettyPrintDB(self.df)
 
-        #There's probably a cleaner way to do this, but it should work for now.
+        '''#There's probably a cleaner way to do this, but it should work for now.
         #It splits the file name, then looks for the part with 'bins', then takes the number before it.
         fname_parts = fst.fnameFromFullPath(self.csv_file).split('_')
         bins_part = [x for x in fname_parts if 'bins' in x]
         assert len(bins_part)==1, print('bins_part is length {}, need len 1.'.format(len(bins_part)))
         bins_part = bins_part[0]
         self.N_bins = int(bins_part.replace('bins',''))
-        print(self.N_bins)
+        print(self.N_bins)'''
+
+        self.N_bins = len([x for x in self.df.columns.values if 'bin' in x])
+
 
         self.bin_names_ordered = ['bin'+str(i) for i in range(self.N_bins)]
 
@@ -64,6 +68,7 @@ class ML:
         self.region_tz_dict = {
         'anchorange' : -9,
         'losangeles' : -8, #124k
+        'sanfrancisco' : -8,
         'vancouver' : -8,
         'denver' : -7, #77k
         'dallas' : -6,
@@ -74,6 +79,7 @@ class ML:
         'washingtondc' : -5, #63k
         'puertorico' : -4,
         'buenosaires' : -3, #2k
+        'brazil' : -3,
         'london' : 0,
         'unitedkingdom' : 0, #210k
         'ireland' : 0,
@@ -81,9 +87,12 @@ class ML:
         'france' : 1, #220k
         'spain' : 1, #19k
         'italy' : 1, #122k
+        'geneva' : 1,
         'greece' : 2, #43k
         'romania' : 2,
         'saudiarabia' : 3, #7k
+        'turkey' : 3,
+        'moscow' : 3,
         'pakistan' : 5, #19k
         'india' : 5.5, #153k
         'thailand' : 7,
@@ -99,6 +108,30 @@ class ML:
         'melbourne' : 10,
         'newzealand' : 12 #92k
         }
+
+
+
+    def createAggFile(self):
+
+        #In the future, all data collection runs should create an aggregate file, but for older
+        #ones, or maybe combining individual runs together, this function will take several CSV files
+        #together and create an aggregate one.
+
+        file_list = glob.glob(fst.addTrailingSlashIfNeeded(self.dir) + '*.csv')
+        print(file_list)
+
+        assert len(file_list)>=1, 'No CSV files to create agg file in dir, exiting.'
+
+        agg_df = pd.read_csv(file_list[0], index_col=0)
+
+        for i, file in enumerate(file_list):
+            if i>0:
+                next_df = pd.read_csv(file, index_col=0)
+                agg_df = agg_df.append(next_df, ignore_index=True)
+
+        self.csv_file = fst.combineDirAndFile(self.dir, 'aggregate.csv')
+        agg_df.to_csv(self.csv_file)
+        print('aggregate file {} created out of files {}'.format(self.csv_file, file_list))
 
 
 
@@ -166,7 +199,7 @@ class ML:
         else:
             diff[diff>12] = 24 - diff
         #err = np.mean(diff)
-        err = sum(diff)/len(diff)
+        err = sum(diff**2)/len(diff)
         return(err)
 
 
@@ -181,10 +214,19 @@ class ML:
         #This is the set of linear weights.
         #Not doing any regularization right now, which we might want to do.
         #Also, it technically doesn't have a bias term, I think...should probably add that.
+        '''W = torch.zeros((self.N_bins + 1,1), requires_grad=True)
+
+        X_tr_tensor = torch.tensor(np.concatenate((X_tr.values,np.ones((X_tr.values.shape[0],1))),axis=1), requires_grad=False, dtype=torch_dtype)
+        X_test_tensor = torch.tensor(np.concatenate((X_test.values,np.ones((X_test.values.shape[0],1))),axis=1), requires_grad=False, dtype=torch_dtype)'''
+
+
         W = torch.zeros((self.N_bins,1), requires_grad=True)
 
         X_tr_tensor = torch.tensor(X_tr.values, requires_grad=False, dtype=torch_dtype)
         X_test_tensor = torch.tensor(X_test.values, requires_grad=False, dtype=torch_dtype)
+
+
+
         y_tr_tensor = torch.tensor(y_tr.values, requires_grad=False, dtype=torch_dtype)
         y_test_tensor = torch.tensor(y_test.values, requires_grad=False, dtype=torch_dtype)
 
@@ -276,6 +318,35 @@ class ML:
             plt.show()
 
 
+    def NN1(self):
+
+        import torch
+        torch_dtype = torch.float32
+        torch.set_default_dtype(torch_dtype)
+
+        X_tr, X_test, y_tr, y_test = self.trainTestSplit()
+
+        class DQN(nn.Module):
+
+            def __init__(self,D_in,H,D_out,NL_fn=torch.tanh,softmax=False):
+                super(DQN, self).__init__()
+
+                self.lin1 = nn.Linear(D_in,H)
+                self.lin2 = nn.Linear(H,D_out)
+                self.NL_fn = NL_fn
+                self.softmax = softmax
+
+            def forward(self, x):
+                x = self.lin1(x)
+                #x = F.relu(x)
+                #x = torch.tanh(x)
+                x = self.NL_fn(x)
+                x = self.lin2(x)
+                if self.softmax:
+                    x = torch.softmax(x,dim=1)
+                return(x)
+
+
 
     def simpleLinReg(self):
 
@@ -291,12 +362,28 @@ class ML:
 
 
 
-    def combineDataSets(self):
-        pass
-        #We should make this, so you can give it several diff directories, and it will
-        #combine them into a single DF.
+    def addExtraDataSets(self, dirs):
+        #You can either pass this a list or a single dir.
+        #This is for adding data in other dirs to self.df. You just pass it the
+        #dir like you did in init(). It should already have an aggregate file. It's
+        #not going to try and create one here. If it doesn't, run createAggFile()
+        #on that dir separately. Also, don't run addTzCol() or any functions that call
+        #it until you've imported all the data you want to, otherwise only part of the
+        #dataset will have the Tz column, but it won't get added again.
 
+        if type(dirs).__name__=='list':
+            dir_list = dirs
+        else:
+            dir_list = [dirs]
 
+        for dir in dir_list:
+
+            file_list = glob.glob(fst.addTrailingSlashIfNeeded(dir) + 'aggregate' + '*')
+            assert len(file_list)==1, 'Not the right amount of aggregate files in dir: ' + str(len(file_list))
+            csv_file = file_list[0]
+
+            extra_df = pd.read_csv(csv_file, index_col=0)
+            self.df = self.df.append(extra_df, ignore_index=True)
 
 
 
