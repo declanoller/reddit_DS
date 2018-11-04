@@ -110,6 +110,7 @@ class ML:
         'geneva' : 1,
         'greece' : 2, #43k
         'romania' : 2,
+        'cairo': 2,
         'saudiarabia' : 3, #7k
         'turkey': 3,
         'istanbul': 3,
@@ -126,6 +127,7 @@ class ML:
         'bali' : 8, 
         'beijing' : 8,
         'shanghai' : 8, #10k
+        'manila': 8,
         'perth' : 8.75,
         'taiwan' : 8, #20k
         'japan' : 9, #138k
@@ -220,6 +222,25 @@ class ML:
         print("shape of X_test: {}".format(X_test.shape))
         print("shape of y_tr: {}".format(y_tr.shape))
         print("shape of y_test: {}".format(y_test.shape))'''
+
+        return(X_tr, X_test, y_tr, y_test)
+
+
+    def trainTestSplit_KFold(self,n_splits):
+
+        #This does a kFold split, and returns LISTS of COPIES of the split DF's. Not sure if this is the best way to implement the method.
+        self.addTzCol()
+        X_tr = []
+        X_test = []
+        y_tr = []
+        y_test = []
+        kf = KFold(n_splits,shuffle=True,random_state=42)
+        for tr_ind,test_ind in kf.split(self.df): 
+            tr_df, test_df = self.df.iloc[tr_ind,:],self.df.iloc[val_ind,:]
+            X_tr.append(tr_df.drop(['user','subreddit','tz'], axis=1),)
+            X_test.append(tr_test.drop(['user','subreddit','tz'], axis=1),)
+            y_tr = tr_df['tz']
+            y_test = test_df['tz']
 
         return(X_tr, X_test, y_tr, y_test)
 
@@ -349,6 +370,8 @@ class ML:
         plt.savefig('SGD_predictions_alpha{}_{}steps.png'.format(alpha, t_range))
         if show_plot:
             plt.show()
+
+        return y_tr_pred, y_test_pred
 
 
     def plotTrainTestResults(self, y_tr_true, y_tr_pred, y_test_true, y_test_pred, show_plot=False, save_plot=False, plot_title=""):
@@ -629,7 +652,55 @@ class ML:
         return model
 
 
+    def plot_y_ypred(self,y_tr_true,y_tr_pred,y_test_true,y_test_pred):
 
+        #Having this as a separate method so it can be used to visualize train results for any models
+
+        fig, axes = plt.subplots(1, 2, figsize=(16,8))
+        ax_train = axes[0]
+        ax_test = axes[1]
+
+        df_tr = pd.DataFrame({'true':y_tr_true, 'pred':y_tr_pred})
+        df_test = pd.DataFrame({'true':y_test_true, 'pred':y_test_pred})
+
+        mean_tr = df_tr.groupby(['true']).mean()
+        tr_bins = mean_tr.index.values
+        mean_tr_pred = mean_tr.values[:,0]
+
+        mean_test = df_test.groupby(['true']).mean()
+        test_bins = mean_test.index.values
+        mean_test_pred = mean_test.values[:,0]
+
+        ideal = np.arange(-12, 13, 1)
+        ax_train.plot(y_tr_true, y_tr_pred, color='tomato', marker='+', linestyle='None')
+        ax_train.plot(ideal, ideal, color='lightgray', label='ideal')
+        ax_train.plot(tr_bins, mean_tr_pred, color='black', marker='+', markersize=15, linestyle='dashed', label='bin avg')
+        ax_train.set_xlabel('true train y values (time zone)')
+        ax_train.set_ylabel('pred train y values (time zone)')
+        ax_train.set_xlim((-13,13))
+        ax_train.legend()
+
+        ax_test.plot(y_test_true, y_test_pred, color='cornflowerblue', marker='+', linestyle='None')
+        ax_test.plot(ideal, ideal, color='lightgray', label='ideal')
+        ax_test.plot(test_bins, mean_test_pred, color='black', marker='+', markersize=15, linestyle='dashed', label='bin avg')
+        ax_test.set_xlabel('true test y values (time zone)')
+        ax_test.set_ylabel('pred test y values (time zone)')
+        ax_test.set_xlim((-13,13))
+        ax_test.legend()
+
+
+
+    def approx_accuracy(self,y,ypred,tolerance):    
+        #calculating how many predictions got exactly the right zone (within tolerance), 
+        #takes absolute value of the difference after rounding 
+        
+        abd_rounded_err = abs(np.round(y) - np.round(ypred))
+        tolerated = len(abd_rounded_err[abd_rounded_err<=tolerance])
+        approx_accuracy = tolerated / len(ypred)        
+
+        print(round(approx_accuracy,2))
+
+        return approx_accuracy
 
 
 
