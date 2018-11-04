@@ -72,21 +72,29 @@ class ML:
         self.region_tz_dict = {
         'anchorange' : -9,
         'losangeles' : -8, #124k
+        'seattle': -8,
         'sanfrancisco' : -8,
         'vancouver' : -8,
         'denver' : -7, #77k
+        'saltlakecity' : -7,
+        'pheonix': -7,
+        'houston': -6,
         'dallas' : -6,
         'chicago' : -6, #124k
         'mexicocity' : -6,
         'nyc' : -5, #154k
         'boston' : -5, #100k
         'washingtondc' : -5, #63k
+        'detroit' : -5, 
         'puertorico' : -4,
+        'venezuela' : -4,
         'brazil': -3, #(-4,3)
         'buenosaires' : -3, #2k
+        'riodejaneiro' : -3,
         'london' : 0,
         'unitedkingdom' : 0, #210k
         'ireland' : 0,
+        'dublin': 0,
         'paris' : 1, #19k
         'france' : 1, #220k
         'geneva': 1,
@@ -96,10 +104,15 @@ class ML:
         'romania' : 2,
         'saudiarabia' : 3, #7k
         'turkey': 3,
-        'moscow':3,
+        'istanbul': 3,
+        'moscow': 3,
+        'riyadh': 3,
+        'oman': 4,
         'pakistan' : 5, #19k
         'india' : 5.5, #153k
+        'kazakhstan' : 6,
         'thailand' : 7,
+        'bangkok' : 7,
         'vietnam' : 7, #18k
         'indonesia' : 7,#(7,8,9), #31k
         'bali' : 8, 
@@ -109,9 +122,12 @@ class ML:
         'taiwan' : 8, #20k
         'japan' : 9, #138k
         'korea' : 9, #60k
+        'seoul' : 9,
         'sydney' : 10,
         'melbourne' : 10,
-        'newzealand' : 12 #92k
+        'tasmania': 10,
+        'newzealand' : 12, #92k
+        'auckland': 12
         }
 
 
@@ -323,11 +339,11 @@ class ML:
                        'nthread':4, 
                        'learning_rate': 0.03, 
                        'verbose':1,
-                       'min_data':2,
-                       'min_data_in_bin':1,
+                       # 'min_data':2,
+                       # 'min_data_in_bin':1,
                       }
 
-        num_boost_round = 300
+        num_boost_round = 500
         verbose_eval = int(num_boost_round/5)
         model = lgb.train(lgb_params, 
                           lgb_train,
@@ -418,6 +434,11 @@ class ML:
         ax.set_ylabel('Post frequency')
         #plt.savefig('savefigs/{}_posttimes.png'.format(user))
         plt.show()
+
+
+    def getData(self):
+
+        return self.df
 
 
 

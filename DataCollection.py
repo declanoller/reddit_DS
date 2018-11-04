@@ -115,7 +115,7 @@ class DataCollection:
 
     def getUsersInSub(self,subreddit):
 
-        request = 'https://api.pushshift.io/reddit/search/comment/?subreddit={}&aggs=author&size=500'.format(subreddit)
+        request = 'https://api.pushshift.io/reddit/search/comment/?subreddit={}&aggs=author&agg_size=500'.format(subreddit)
         J = self.requestToJson(request)
         df = self.normalizeJson(J,field='author',aggs=True)
 
