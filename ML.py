@@ -94,7 +94,6 @@ class ML:
         'venezuela' : -4,
         'brazil': -3, #(-4,3)
         'buenosaires' : -3, #2k
-        'brazil' : -3,
         'riodejaneiro' : -3,
         'london' : 0,
         'unitedkingdom' : 0, #210k
@@ -412,7 +411,6 @@ class ML:
             self.df = self.df.append(extra_df, ignore_index=True)
 
 
-
     def plotUserPostTimesSub(self, subreddit):
 
         fig, ax = plt.subplots(1,1,figsize=(8,8))
@@ -482,7 +480,6 @@ class ML:
     def getData(self):
 
         return self.df
-
 
 
     def run_lightgbm(self,x_train,x_val,y_train,y_val):
