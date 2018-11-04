@@ -76,11 +76,15 @@ class ML:
         self.region_tz_dict = {
         'anchorange' : -9,
         'losangeles' : -8, #124k
+        'seattle': -8,
         'sanfrancisco' : -8,
         'seattle' : -8,
         'saltlakecity' : -8,
         'vancouver' : -8,
         'denver' : -7, #77k
+        'saltlakecity' : -7,
+        'pheonix': -7,
+        'houston': -6,
         'dallas' : -6,
         'houston' : -6,
         'chicago' : -6, #124k
@@ -107,9 +111,11 @@ class ML:
         'greece' : 2, #43k
         'romania' : 2,
         'saudiarabia' : 3, #7k
-        'turkey' : 3,
-        'moscow' : 3,
-        'oman' : 4,
+        'turkey': 3,
+        'istanbul': 3,
+        'moscow': 3,
+        'riyadh': 3,
+        'oman': 4,
         'pakistan' : 5, #19k
         'india' : 5.5, #153k
         'kazakhstan' : 6,
@@ -127,8 +133,9 @@ class ML:
         'seoul' : 9,
         'sydney' : 10,
         'melbourne' : 10,
-        'tasmania' : 11,
-        'newzealand' : 12 #92k
+        'tasmania': 10,
+        'newzealand' : 12, #92k
+        'auckland': 12
         }
 
 
@@ -572,11 +579,18 @@ class ML:
         #plt.savefig('savefigs/{}_posttimes.png'.format(user))
         plt.show()
 
+
+    def getData(self):
+
+        return self.df
+
+
     def run_lightgbm(self,x_train,x_val,y_train,y_val):
 
         #x_train,x_val,y_train,y_val = self.trainTestSplit()
         lgb_train = lgb.Dataset(x_train, label=y_train)
         lgb_test = lgb.Dataset(x_val, label=y_val)
+
         evals_result={}
         lgb_params = {
                        'objective': 'mse',
@@ -584,11 +598,11 @@ class ML:
                        'nthread':4, 
                        'learning_rate': 0.03, 
                        'verbose':1,
-                       'min_data':2,
-                       'min_data_in_bin':1,
+                       # 'min_data':2,
+                       # 'min_data_in_bin':1,
                       }
 
-        num_boost_round = 300
+        num_boost_round = 500
         verbose_eval = int(num_boost_round/5)
         model = lgb.train(lgb_params, 
                           lgb_train,
@@ -611,6 +625,7 @@ class ML:
         # if(saveplots):plt.savefig(saveFolder+"/"+"lgb_plot_importance_"+saveName+".pdf")
 
         plt.show()
+
         return model
 
 
