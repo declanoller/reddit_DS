@@ -48,6 +48,53 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 
 # Ran on Oct 19, 2018, this took ~20 mins.
-dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
-dc.postTimesRegions(['brazil','turkey'])
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['brazil','turkey'])
 
+### below runs took 500 users:
+
+# Ran on Oct 26, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['seattle','dublin','shanghai'])
+
+
+# Ran on Oct 28, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['houston','cairo','tasmania'])
+
+
+# # Ran on Oct 29, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['venezuela','oman','seoul'])
+
+# Ran on Oct 29, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['saltlakecity','saopaolo','manila'])
+
+
+# Ran on Oct 30, 2018 #stuck at istanbul
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['detroit','paris','istanbul'])
+
+
+# Ran on Oct 31, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['istanbul'])
+
+# Ran on Oct 31, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['pakistan','kazakhstan','bangkok'])
+
+
+# Ran on Nov 1, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['riodejaneiro'])
+
+# Ran on Nov 1, 2018 #Auckland got killed
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['romania','auckland'])
+
+
+# Ran on Nov 2, 2018
+dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+dc.postTimesRegions(['auckland'])
