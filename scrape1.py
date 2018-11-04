@@ -19,10 +19,14 @@ took 48 minutes, so ~4s/request. Hmmm.
 ml = ML('/home/declan/Documents/code/reddit_DS/savedat/nyc_losangeles_unitedkingdom_greece_indonesia_japan_newzealand_1000users_24bins_00-16-17')
 #ml = ML('/home/declan/Documents/code/reddit_DS/savedat/rizki_dat1/')
 ml.addExtraDataSets('/home/declan/Documents/code/reddit_DS/savedat/rizki_dat1/')
+ml.addExtraDataSets('/home/declan/Documents/code/reddit_DS/savedat/rizki_dat2/')
 #ml.prettyPrintDB(ml.df)
 #ml.postAvgTimesByRegion()
 #ml.simpleLinReg()
-ml.cyclicMetricSGD(alpha=10**-4, timesteps=4000, show_plot=False)
+#ml.cyclicMetricSGD(alpha=10**-4, timesteps=4000, show_plot=False)
+
+ml.NN1()
+
 exit(0)
 
 ml.cyclicMetricSGD(alpha=10**-3, timesteps=4000, show_plot=False)
