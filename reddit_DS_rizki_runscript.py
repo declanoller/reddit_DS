@@ -1,6 +1,7 @@
 import pandas as pd
 
-from DBTools import DBTools
+from DataCollection import DataCollection
+from ML import ML
 
 '''
 
@@ -15,21 +16,85 @@ took 48 minutes, so ~4s/request. Hmmm.
 
 '''
 
+# ml = ML('/Users/rizki/Documents/Projects/withDeclan/reddit_DS/savedat/losangeles_boston_5users_24bins_18-46-47')
+
+# ml.postAvgTimesByRegion()
+#ml.plotUserPostTimes('405freeway')
+#ml.plotUserPostTimesSub('boston')
+#ml.plotUserPostTimes(['405freeway', 'cpxh'])
+
+#ml.simpleLinReg()
+
+# exit(0)
+
+# dc = DataCollection(verbose=1, N_users=10, N_post_limit=50)
+# dc.postTimesRegions(['losangeles','london','bali'])
+
+# Ran on Oct 14,2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=500)
+# dc.postTimesRegions(['sanfrancisco','geneva','sydney'])
+
+# Ran on Oct 16, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['chicago','moscow','india']) # this got cut at moscow
+
+# Ran on Oct 17, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['moscow','india'])
+
+# Ran on Oct 19, 2018, # this got cut at brazil at 94/98
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['denver','brazil','turkey'])
 
 
-dbt = DBTools(N_users=10,
-			  N_post_limit=50,
-			  verbose=1,
-			  max_req_size=500)
+# Ran on Oct 19, 2018, this took ~20 mins.
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['brazil','turkey'])
 
-#note the following method requires the existence of the following folders: "savedat","savefig". Need to configure this. 
-dbt.postTimesRegions(['losangeles','london','bali'])
+### below runs took 500 users:
 
-
-#dbt.meanPostTimesRegions(['nyc','losangeles'])
-#dbt.postTimesRegions(['boston','losangeles','london','paris','greece','saudiarabia','pakistan','vietnam','taiwan','korea','melbourne','newzealand'])
-#dbt.getUserPostTimesForSub('providence')
-#dbt.plotUserPostTimes('m1327')
+# Ran on Oct 26, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['seattle','dublin','shanghai'])
 
 
-#
+# Ran on Oct 28, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['houston','cairo','tasmania'])
+
+
+# # Ran on Oct 29, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['venezuela','oman','seoul'])
+
+# Ran on Oct 29, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['saltlakecity','saopaolo','manila'])
+
+
+# Ran on Oct 30, 2018 #stuck at istanbul
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['detroit','paris','istanbul'])
+
+
+# Ran on Oct 31, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['istanbul'])
+
+# Ran on Oct 31, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['pakistan','kazakhstan','bangkok'])
+
+
+# Ran on Nov 1, 2018
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['riodejaneiro'])
+
+# Ran on Nov 1, 2018 #Auckland got killed
+# dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+# dc.postTimesRegions(['romania','auckland'])
+
+
+# Ran on Nov 2, 2018
+dc = DataCollection(verbose=1, N_users=1000, N_post_limit=1000)
+dc.postTimesRegions(['auckland'])

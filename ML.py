@@ -17,8 +17,16 @@ from sklearn.pipeline import make_pipeline
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import make_scorer
 #import xgboost as xgb
-#import lightgbm as lgb
+import lightgbm as lgb
 
+
+# f(preds: array, train_data: Dataset) -> name: string, eval_result: float, is_higher_better: bool
+def custom_metric(y_pred, train_data):
+    y_true = train_data.get_label()
+    diff = np.abs(y_true - y_pred)
+    diff[diff>12] = 24 - diff
+    err=np.mean(diff)
+    return 'custom diff error',err,False
 
 
 class ML:
@@ -68,11 +76,15 @@ class ML:
         self.region_tz_dict = {
         'anchorange' : -9,
         'losangeles' : -8, #124k
+        'seattle': -8,
         'sanfrancisco' : -8,
         'seattle' : -8,
         'saltlakecity' : -8,
         'vancouver' : -8,
         'denver' : -7, #77k
+        'saltlakecity' : -7,
+        'pheonix': -7,
+        'houston': -6,
         'dallas' : -6,
         'houston' : -6,
         'chicago' : -6, #124k
@@ -83,33 +95,39 @@ class ML:
         'detroit' : -5,
         'puertorico' : -4,
         'venezuela' : -4,
+        'brazil': -3, #(-4,3)
         'buenosaires' : -3, #2k
         'riodejaneiro' : -3,
-        'brazil' : -3,
         'london' : 0,
         'unitedkingdom' : 0, #210k
         'ireland' : 0,
         'dublin' : 0,
         'paris' : 1, #19k
         'france' : 1, #220k
+        'geneva': 1,
         'spain' : 1, #19k
         'italy' : 1, #122k
         'geneva' : 1,
         'greece' : 2, #43k
         'romania' : 2,
+        'cairo': 2,
         'saudiarabia' : 3, #7k
-        'turkey' : 3,
-        'moscow' : 3,
-        'oman' : 4,
+        'turkey': 3,
+        'istanbul': 3,
+        'moscow': 3,
+        'riyadh': 3,
+        'oman': 4,
         'pakistan' : 5, #19k
         'india' : 5.5, #153k
         'kazakhstan' : 6,
         'thailand' : 7,
         'bangkok' : 7,
         'vietnam' : 7, #18k
-        'indonesia' : 7, #31k
+        'indonesia' : 7,#(7,8,9), #31k
+        'bali' : 8, 
         'beijing' : 8,
         'shanghai' : 8, #10k
+        'manila': 8,
         'perth' : 8.75,
         'taiwan' : 8, #20k
         'japan' : 9, #138k
@@ -117,8 +135,9 @@ class ML:
         'seoul' : 9,
         'sydney' : 10,
         'melbourne' : 10,
-        'tasmania' : 11,
-        'newzealand' : 12 #92k
+        'tasmania': 10,
+        'newzealand' : 12, #92k
+        'auckland': 12
         }
 
 
@@ -203,6 +222,25 @@ class ML:
         print("shape of X_test: {}".format(X_test.shape))
         print("shape of y_tr: {}".format(y_tr.shape))
         print("shape of y_test: {}".format(y_test.shape))'''
+
+        return(X_tr, X_test, y_tr, y_test)
+
+
+    def trainTestSplit_KFold(self,n_splits):
+
+        #This does a kFold split, and returns LISTS of COPIES of the split DF's. Not sure if this is the best way to implement the method.
+        self.addTzCol()
+        X_tr = []
+        X_test = []
+        y_tr = []
+        y_test = []
+        kf = KFold(n_splits,shuffle=True,random_state=42)
+        for tr_ind,test_ind in kf.split(self.df): 
+            tr_df, test_df = self.df.iloc[tr_ind,:],self.df.iloc[val_ind,:]
+            X_tr.append(tr_df.drop(['user','subreddit','tz'], axis=1),)
+            X_test.append(tr_test.drop(['user','subreddit','tz'], axis=1),)
+            y_tr = tr_df['tz']
+            y_test = test_df['tz']
 
         return(X_tr, X_test, y_tr, y_test)
 
@@ -332,6 +370,8 @@ class ML:
         plt.savefig('SGD_predictions_alpha{}_{}steps.png'.format(alpha, t_range))
         if show_plot:
             plt.show()
+
+        return y_tr_pred, y_test_pred
 
 
     def plotTrainTestResults(self, y_tr_true, y_tr_pred, y_test_true, y_test_pred, show_plot=False, save_plot=False, plot_title=""):
@@ -477,7 +517,6 @@ class ML:
 
 
 
-
     def addExtraDataSets(self, dirs):
         #You can either pass this a list or a single dir.
         #This is for adding data in other dirs to self.df. You just pass it the
@@ -503,8 +542,6 @@ class ML:
 
             extra_df = pd.read_csv(csv_file, index_col=0)
             self.df = self.df.append(extra_df, ignore_index=True)
-
-
 
 
     def plotUserPostTimesSub(self, subreddit):
@@ -573,10 +610,111 @@ class ML:
         plt.show()
 
 
+    def getData(self):
+
+        return self.df
 
 
+    def run_lightgbm(self,x_train,x_val,y_train,y_val):
+
+        #x_train,x_val,y_train,y_val = self.trainTestSplit()
+        lgb_train = lgb.Dataset(x_train, label=y_train)
+        lgb_test = lgb.Dataset(x_val, label=y_val)
+
+        evals_result={}
+        lgb_params = {
+                       'objective': 'mse',
+                       'metric': 'custom_metric',
+                       'nthread':4, 
+                       'learning_rate': 0.03, 
+                       'verbose':1,
+                       # 'min_data':2,
+                       # 'min_data_in_bin':1,
+                      }
+
+        num_boost_round = 500
+        verbose_eval = int(num_boost_round/5)
+        model = lgb.train(lgb_params, 
+                          lgb_train,
+                          valid_sets=[lgb_train, lgb_test],
+                          valid_names=['train','eval'],
+                          num_boost_round=num_boost_round,
+                          evals_result=evals_result,
+                          early_stopping_rounds=100,
+                          verbose_eval=verbose_eval,
+                          feval=custom_metric,
+                          )
+
+        print('Plot metrics recorded during training...')
+
+        ax = lgb.plot_metric(evals_result, metric='custom diff error')
+        #if(saveplots):plt.savefig(saveFolder+"/"+"lgb_plot_metric_"+saveName+".pdf")
+
+        print('Plot feature importances...')
+        ax = lgb.plot_importance(model, max_num_features=x_val.shape[1])
+        # if(saveplots):plt.savefig(saveFolder+"/"+"lgb_plot_importance_"+saveName+".pdf")
+
+        plt.show()
+
+        return model
 
 
+    def plot_y_ypred(self,y_tr_true,y_tr_pred,y_test_true,y_test_pred):
+
+        #Having this as a separate method so it can be used to visualize train results for any models
+
+        fig, axes = plt.subplots(1, 2, figsize=(16,8))
+        ax_train = axes[0]
+        ax_test = axes[1]
+
+        df_tr = pd.DataFrame({'true':y_tr_true, 'pred':y_tr_pred})
+        df_test = pd.DataFrame({'true':y_test_true, 'pred':y_test_pred})
+
+        mean_tr = df_tr.groupby(['true']).mean()
+        tr_bins = mean_tr.index.values
+        mean_tr_pred = mean_tr.values[:,0]
+
+        mean_test = df_test.groupby(['true']).mean()
+        test_bins = mean_test.index.values
+        mean_test_pred = mean_test.values[:,0]
+
+        ideal = np.arange(-12, 13, 1)
+        ax_train.plot(y_tr_true, y_tr_pred, color='tomato', marker='+', linestyle='None')
+        ax_train.plot(ideal, ideal, color='lightgray', label='ideal')
+        ax_train.plot(tr_bins, mean_tr_pred, color='black', marker='+', markersize=15, linestyle='dashed', label='bin avg')
+        ax_train.set_xlabel('true train y values (time zone)')
+        ax_train.set_ylabel('pred train y values (time zone)')
+        ax_train.set_xlim((-13,13))
+        ax_train.legend()
+
+        ax_test.plot(y_test_true, y_test_pred, color='cornflowerblue', marker='+', linestyle='None')
+        ax_test.plot(ideal, ideal, color='lightgray', label='ideal')
+        ax_test.plot(test_bins, mean_test_pred, color='black', marker='+', markersize=15, linestyle='dashed', label='bin avg')
+        ax_test.set_xlabel('true test y values (time zone)')
+        ax_test.set_ylabel('pred test y values (time zone)')
+        ax_test.set_xlim((-13,13))
+        ax_test.legend()
+
+
+    def approx_accuracy(self,y,ypred,tolerance):    
+        #calculating how many predictions got exactly the right zone (within tolerance), 
+        #takes absolute value of the difference after rounding 
+        
+        abd_rounded_err = abs(np.round(y) - np.round(ypred))
+        tolerated = len(abd_rounded_err[abd_rounded_err<=tolerance])
+        approx_accuracy = tolerated / len(ypred)        
+
+    def approx_accuracy(self,y,ypred,tolerance):    
+        #calculating how many predictions got exactly the right zone (within tolerance), 
+        #takes absolute value of the difference after rounding 
+        
+        abd_rounded_err = abs(np.round(y) - np.round(ypred))
+        tolerated = len(abd_rounded_err[abd_rounded_err<=tolerance])
+        approx_accuracy = tolerated / len(ypred)        
+
+        print(round(approx_accuracy,2))
+
+        return approx_accuracy
 
 
 
