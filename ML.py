@@ -689,6 +689,13 @@ class ML:
         ax_test.legend()
 
 
+    def approx_accuracy(self,y,ypred,tolerance):    
+        #calculating how many predictions got exactly the right zone (within tolerance), 
+        #takes absolute value of the difference after rounding 
+        
+        abd_rounded_err = abs(np.round(y) - np.round(ypred))
+        tolerated = len(abd_rounded_err[abd_rounded_err<=tolerance])
+        approx_accuracy = tolerated / len(ypred)        
 
     def approx_accuracy(self,y,ypred,tolerance):    
         #calculating how many predictions got exactly the right zone (within tolerance), 
