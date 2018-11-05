@@ -389,6 +389,13 @@ class ML:
         X_tr_tensor = torch.tensor(X_tr.values, requires_grad=False, dtype=torch_dtype)
         X_test_tensor = torch.tensor(X_test.values, requires_grad=False, dtype=torch_dtype)
 
+        X_tr_tensor = X_tr_tensor/(X_tr_tensor.norm(dim=1).unsqueeze(dim=1).expand(X_tr_tensor.shape))
+        X_test_tensor = X_test_tensor/(X_test_tensor.norm(dim=1).unsqueeze(dim=1).expand(X_test_tensor.shape))
+
+        X_tr_tensor = X_tr_tensor - X_tr_tensor.mean(dim=1).unsqueeze(dim=1).expand(X_tr_tensor.shape)
+        X_test_tensor = X_test_tensor - X_test_tensor.mean(dim=1).unsqueeze(dim=1).expand(X_test_tensor.shape)
+
+
         y_tr_tensor = torch.tensor(y_tr.values, requires_grad=False, dtype=torch_dtype)
         y_test_tensor = torch.tensor(y_test.values, requires_grad=False, dtype=torch_dtype)
 
@@ -415,12 +422,12 @@ class ML:
                     x = torch.softmax(x,dim=1)
                 return(x)
 
-        N_hidden_layer_nodes = 60
+        N_hidden_layer_nodes = 100
         self.tz_predict_NN = DQN(24, N_hidden_layer_nodes, 1, NL_fn=F.relu)
         self.optimizer = optim.RMSprop(self.tz_predict_NN.parameters())
 
         loss_history = []
-        N_steps = 2000
+        N_steps = 10000
         for i in range(N_steps):
 
             y_pred_tensor = self.tz_predict_NN(X_tr_tensor)
@@ -488,7 +495,7 @@ class ML:
         for dir in dir_list:
 
             file_list = glob.glob(fst.addTrailingSlashIfNeeded(dir) + 'aggregate' + '*')
-            if file_list!=1:
+            if len(file_list)!=1:
                 print('Not the right amount of aggregate files in dir: ' + str(len(file_list)) + '. Creating one now.')
                 csv_file = self.createAggFile(dir)
             else:
